@@ -2,23 +2,55 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"runstate/engine/internal/engine"
+	"runstate/engine/internal/proc"
 	"syscall"
 	"time"
 )
 
+func withCORS(w http.ResponseWriter, r *http.Request) bool {
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:1420")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return true
+	}
+	return false
+}
+
 func main() {
 	log.SetPrefix("[engine]")
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("/processes", func(w http.ResponseWriter, r *http.Request) {
+		if withCORS(w, r) {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+
+		snapshot, err := proc.Snapshot()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode(snapshot)
+	})
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:1420")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if withCORS(w, r) {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
 
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
@@ -26,6 +58,20 @@ func main() {
 		}
 
 		w.Write([]byte("OK"))
+	})
+	mux.HandleFunc("/ports", func(w http.ResponseWriter, r *http.Request) {
+		if withCORS(w, r) {
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+
+		data, err := engine.SnapshotPorts()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		json.NewEncoder(w).Encode(data)
 	})
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

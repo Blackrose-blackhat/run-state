@@ -26,40 +26,57 @@ fn main() {
                 .spawn()
                 .expect("failed to start engine");
 
-            let stdout = child.stdout.take().unwrap();
-            let reader = std::io::BufReader::new(stdout);
+            let stdout = child.stdout.take().expect("Failed to take stdout");
+            let handle = app.handle().clone();
+
+            std::thread::spawn(move || {
+                let reader = std::io::BufReader::new(stdout);
+
+                for line in reader.lines().flatten() {
+                    if line.starts_with("PORT=") {
+                        if let Ok(port) = line[5..].parse::<u16>() {
+                            let state = handle.state::<EngineState>();
+                            *state.port.lock().unwrap() = Some(port);
+                            break;
+                        }
+                    }
+                }
+            });
 
             let state = app.state::<EngineState>();
-
-            for line in reader.lines().flatten() {
-                if line.starts_with("PORT=") {
-                    let port: u16 = line[5..].parse().unwrap();
-                    *state.port.lock().unwrap() = Some(port);
-                    break;
-                }
-            }
-
             *state.child.lock().unwrap() = Some(child);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![get_engine_port])
-       .on_window_event(|window, event| {
-    if let tauri::WindowEvent::CloseRequested { .. } = event {
-        let state = window.state::<EngineState>();
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::CloseRequested { .. } = event {
+                let state = window.state::<EngineState>();
 
-        let child = {
-            let mut guard = state.child.lock().unwrap();
-            guard.take()
-        };
+                let child = {
+                    let mut guard = state.child.lock().unwrap();
+                    guard.take()
+                };
 
-        if let Some(mut child) = child {
-            let _ = child.kill();
-        }
-    }
-})
-
-        .run(tauri::generate_context!())
-        .expect("error running tauri app");
+                if let Some(mut child) = child {
+                    let _ = child.kill();
+                }
+            }
+        })
+        .build(tauri::generate_context!())
+        .expect("error building tauri app")
+        .run(|app_handle, event| {
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                if let Some(mut child) = app_handle
+                    .state::<EngineState>()
+                    .child
+                    .lock()
+                    .unwrap()
+                    .take()
+                {
+                    let _ = child.kill();
+                }
+            }
+        });
 }
 
 #[tauri::command]
