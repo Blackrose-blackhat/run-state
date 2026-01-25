@@ -16,8 +16,9 @@ import (
 )
 
 func withCORS(w http.ResponseWriter, r *http.Request) bool {
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:1420")
-	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+	// Allow all origins for development
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 	if r.Method == http.MethodOptions {
@@ -73,6 +74,127 @@ func main() {
 
 		json.NewEncoder(w).Encode(data)
 	})
+	// Kill simulation endpoint - dry run impact analysis
+	mux.HandleFunc("/kill/simulate", func(w http.ResponseWriter, r *http.Request) {
+		if withCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+
+		var req struct {
+			PID int32 `json:"pid"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Get current state
+		processes, err := proc.Snapshot()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		ports, err := engine.SnapshotPorts()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Simulate the kill
+		simulation := engine.SimulateKill(req.PID, processes, ports)
+		json.NewEncoder(w).Encode(simulation)
+	})
+
+	// Graceful kill endpoint with two-phase termination
+	mux.HandleFunc("/kill", func(w http.ResponseWriter, r *http.Request) {
+		if withCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+
+		var req struct {
+			PID   int  `json:"pid"`
+			Force bool `json:"force"` // Skip SIGTERM, go straight to SIGKILL
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		targetProc, err := os.FindProcess(req.PID)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		type KillResult struct {
+			Success bool   `json:"success"`
+			Phase   string `json:"phase"` // "sigterm" or "sigkill"
+			Message string `json:"message"`
+		}
+
+		// Phase 1: SIGTERM (graceful)
+		if !req.Force {
+			if err := targetProc.Signal(syscall.SIGTERM); err != nil {
+				// Process might already be dead
+				json.NewEncoder(w).Encode(KillResult{
+					Success: true,
+					Phase:   "sigterm",
+					Message: "Process already terminated or inaccessible",
+				})
+				return
+			}
+
+			// Wait up to 4 seconds for graceful termination
+			terminated := false
+			for i := 0; i < 8; i++ {
+				time.Sleep(500 * time.Millisecond)
+				// Check if process still exists by sending signal 0
+				if err := targetProc.Signal(syscall.Signal(0)); err != nil {
+					terminated = true
+					break
+				}
+			}
+
+			if terminated {
+				json.NewEncoder(w).Encode(KillResult{
+					Success: true,
+					Phase:   "sigterm",
+					Message: "Process terminated gracefully",
+				})
+				return
+			}
+
+			// Process still alive, escalate to SIGKILL
+			log.Printf("[kill] PID %d did not respond to SIGTERM, escalating to SIGKILL", req.PID)
+		}
+
+		// Phase 2: SIGKILL (forced)
+		if err := targetProc.Signal(syscall.SIGKILL); err != nil {
+			json.NewEncoder(w).Encode(KillResult{
+				Success: false,
+				Phase:   "sigkill",
+				Message: "Failed to force kill: " + err.Error(),
+			})
+			return
+		}
+
+		json.NewEncoder(w).Encode(KillResult{
+			Success: true,
+			Phase:   "sigkill",
+			Message: "Process force terminated",
+		})
+	})
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -82,8 +204,26 @@ func main() {
 	port := ln.Addr().(*net.TCPAddr).Port
 	fmt.Printf("PORT=%d\n", port)
 
+	// Recovery middleware to prevent engine crashes from unexpected panics
+	recoveryHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Printf("[CRITICAL] Panic caught by middleware: %v", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			}
+		}()
+		mux.ServeHTTP(w, r)
+	})
+
+	// Logging middleware for engineering observability
+	loggingHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		recoveryHandler.ServeHTTP(w, r)
+		log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start))
+	})
+
 	server := &http.Server{
-		Handler: mux,
+		Handler: loggingHandler,
 	}
 	go func() {
 		if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {

@@ -14,6 +14,7 @@ type PortSnapshot struct {
 	FirstSeen time.Time      `json:"first_seen"`
 	LastSeen  time.Time      `json:"last_seen"`
 	Orphaned  bool           `json:"orphaned"`
+	Insight   *PortInsight   `json:"insight,omitempty"`
 }
 
 var portState = make(map[string]struct {
@@ -82,6 +83,16 @@ func SnapshotPorts() ([]PortSnapshot, error) {
 		}
 
 		ps.Orphaned = orphaned
+
+		// Generate insight for this port
+		if ps.Process != nil {
+			ps.Insight = GenerateInsight(
+				state.FirstSeen,
+				ps.Process.Cmdline,
+				ps.Process.Name,
+				10*time.Minute, // Forgotten threshold: 10 minutes
+			)
+		}
 
 		out = append(out, ps)
 	}
