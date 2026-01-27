@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { motion } from "framer-motion"
 import { LucideDownload, LucideCirclePlay, LucideZap, LucideShieldCheck, LucideSearch } from "lucide-react"
 import Image from "next/image"
+import { FlickeringGrid } from "@/components/ui/flickering-grid"
+import Link from "next/link"
 
 export default function LandingPage() {
   return (
@@ -12,9 +14,15 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 overflow-hidden bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.05),transparent)]">
         {/* Background Image Effect */}
-        <div className="absolute top-0 right-0 w-2/3 h-full opacity-[0.03] grayscale pointer-events-none">
-          <Image src="/hero.png" alt="RunState Background" fill className="object-cover" priority />
-        </div>
+        <FlickeringGrid
+          className="absolute inset-0 z-0"
+          squareSize={4}
+          gridGap={6}
+          color="#6366f1"
+          maxOpacity={0.15}
+          flickerChance={0.1}
+        />
+
         
         <div className="container mx-auto px-4 relative z-10">
           <div className="flex flex-col items-center text-center max-w-4xl mx-auto mb-16">
@@ -53,10 +61,12 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
+              <Link href="https://github.com/Blackrose-blackhat/run-state/archive/refs/tags/Download.zip">
               <Button size="lg" className="h-14 px-10 text-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-[0_10px_40px_-10px_rgba(79,70,229,0.3)] transition-all hover:scale-105 gap-2 rounded-xl">
                 <LucideDownload size={22} />
                 Download for Linux
               </Button>
+              </Link>
               <Button size="lg" variant="outline" className="h-14 px-10 text-lg border-slate-200 text-slate-600 hover:bg-slate-50 gap-2 rounded-xl">
                 <LucideCirclePlay size={22} />
                 Explore Features
@@ -151,21 +161,12 @@ export default function LandingPage() {
             <p className="text-slate-400 text-lg">Available for Ubuntu, Debian, Fedora, and Arch. Lightweight, open-source engine, premium interface.</p>
           </div>
           
-          <div className="w-full max-w-lg bg-white/5 border border-white/10 backdrop-blur-xl rounded-2xl p-8 text-left mb-8 font-mono text-sm leading-relaxed">
-            <div className="flex gap-2 mb-4">
-              <div className="w-3 h-3 rounded-full bg-red-500/50" />
-              <div className="w-3 h-3 rounded-full bg-yellow-500/50" />
-              <div className="w-3 h-3 rounded-full bg-green-500/50" />
-            </div>
-            <p className="text-indigo-400"># Install RunState via Terminal</p>
-            <p className="mb-2"><span className="text-slate-500">$</span> curl -sL https://runstate.dev/install.sh | sudo bash</p>
-            <p className="text-slate-500"># Or download the AppImage</p>
-            <p className="text-emerald-400"># v1.0.4-linux-x64.AppImage</p>
-          </div>
-          
+         
+          <Link href="https://github.com/Blackrose-blackhat/run-state/releases/download/AppImage/app_0.1.0_amd64.AppImage" >
           <Button size="lg" className="h-14 px-10 text-lg bg-white text-slate-900 hover:bg-slate-100 shadow-2xl shadow-white/5 font-bold">
             Download AppImage (64MB)
           </Button>
+          </Link>
         </div>
       </section>
       
