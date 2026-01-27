@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
 
+echo "▶ killing existing engine processes"
+pkill -f runstate-engine || true
+
 echo "▶ building go engine"
 
 ENGINE_DIR="$(pwd)/engine"

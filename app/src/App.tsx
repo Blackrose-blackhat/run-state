@@ -1,246 +1,191 @@
-import { invoke } from "@tauri-apps/api/core";
-import { useEffect, useState } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useEngine } from "./hooks/useEngine";
+import { Sidebar } from "./components/Sidebar";
+import { Dashboard } from "./components/Dashboard";
+import { PortMonitor } from "./components/PortMonitor";
+import { ProcessList } from "./components/ProcessList";
+import { KillConfirmModal } from "./components/KillConfirmModal";
+import { View } from "./types";
+import { usePreferences } from "./hooks/usePreferences";
+import { Settings } from "./components/Settings";
+import { NotificationToast } from "./components/NotificationToast";
 
-type EngineStatus = "starting" | "ready" | "unreachable" | "error";
-
-interface ProcInfo {
-  pid: number;
-  ppid: number;
-  name: string;
-  cmdline: string;
-  username: string;
-  create_time: string;
-  memory_mb: number;
-}
-
-interface PortSnapshot {
-  port: number;
-  pid: number;
-  process?: ProcInfo;
-  first_seen: string;
-  last_seen: string;
-  orphaned: boolean;
-}
-
-type View = "dashboard" | "processes" | "ports";
-
+/**
+ * Main application component for DevResidue.
+ * Uses modular components and a custom hook for state management.
+ */
 function App() {
-  const [status, setStatus] = useState<EngineStatus>("starting");
-  const [port, setPort] = useState<number | null>(null);
+  const { 
+    status, 
+    processes, 
+    ports, 
+    killState,
+    simulateKill,
+    killProcess, 
+    resetKillState,
+    forgottenPortsCount,
+    orphanedPortsCount,
+  } = useEngine();
+  
   const [activeView, setActiveView] = useState<View>("dashboard");
-  const [processes, setProcesses] = useState<Record<number, ProcInfo>>({});
-  const [ports, setPorts] = useState<PortSnapshot[]>([]);
-  const [search, setSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { preferences, toggleTheme } = usePreferences();
+  const theme = preferences.theme;
 
-  async function fetchData() {
-    try {
-      const enginePort = await invoke<number | null>("get_engine_port");
-      setPort(enginePort);
-
-      if (!enginePort) {
-        setStatus("starting");
-        return;
-      }
-
-      const [procsRes, portsRes] = await Promise.all([
-        fetch(`http://127.0.0.1:${enginePort}/processes`),
-        fetch(`http://127.0.0.1:${enginePort}/ports`),
-      ]);
-
-      if (procsRes.ok && portsRes.ok) {
-        setProcesses(await procsRes.json());
-        setPorts(await portsRes.json());
-        setStatus("ready");
-      } else {
-        setStatus("unreachable");
-      }
-    } catch (err) {
-      console.error(err);
-      setStatus("error");
+  // Handle kill confirmation from modal
+  const handleConfirmKill = async (force?: boolean) => {
+    if (killState.status === "confirming") {
+      await killProcess(killState.pid, force);
+      // Auto-reset after success/error with delay
+      setTimeout(resetKillState, 2000);
     }
-  }
+  };
 
+  // Watch for errors
   useEffect(() => {
-    fetchData();
-    const id = setInterval(fetchData, 2000);
-    return () => clearInterval(id);
-  }, []);
-
-  const renderDashboard = () => {
-    const totalMemory = Object.values(processes).reduce((acc, p) => acc + p.memory_mb, 0);
-    const orphanedPorts = ports.filter(p => p.orphaned).length;
-
-    return (
-      <div className="view-fade-in">
-        <h2>Dashboard</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-          <div className="card">
-            <div className="text-muted">Active Processes</div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{Object.keys(processes).length}</div>
-          </div>
-          <div className="card">
-            <div className="text-muted">Listening Ports</div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{ports.length}</div>
-          </div>
-          <div className="card" style={{ borderColor: orphanedPorts > 0 ? 'var(--warning)' : 'var(--glass-border)' }}>
-            <div className="text-muted">Orphaned Ports</div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold', color: orphanedPorts > 0 ? 'var(--warning)' : 'inherit' }}>
-              {orphanedPorts}
-            </div>
-          </div>
-          <div className="card">
-            <div className="text-muted">Memory Usage</div>
-            <div style={{ fontSize: '2rem', fontWeight: 'bold' }}>{totalMemory.toFixed(1)} MB</div>
-          </div>
-        </div>
-
-        <h3 style={{ marginTop: '40px', marginBottom: '16px' }}>System Health</h3>
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-             <span className={`badge ${status === 'ready' ? 'badge-success' : 'badge-danger'}`}>
-               {status.toUpperCase()}
-             </span>
-             <span className="text-muted">Engine is running on local port {port}</span>
-          </div>
-        </div>
-      </div>
-    );
+    if (killState.status === "error") {
+      resetKillState();
+    }
+  }, [killState, resetKillState]);
+  
+  // Handle modal cancel
+  const handleCancelKill = () => {
+    resetKillState();
   };
 
-  const renderProcesses = () => {
-    const filteredProcs = Object.values(processes).filter(p => 
-      p.name.toLowerCase().includes(search.toLowerCase()) || 
-      p.pid.toString().includes(search)
+  // Filtered data based on search query
+  const filteredPorts = useMemo(() => {
+    if (!searchQuery) return ports;
+    const query = searchQuery.toLowerCase();
+    return ports.filter(p => 
+      p.port.toString().includes(query) || 
+      p.pid.toString().includes(query) ||
+      p.process?.name.toLowerCase().includes(query) ||
+      p.process?.cmdline.toLowerCase().includes(query)
     );
+  }, [ports, searchQuery]);
 
-    return (
-      <div className="view-fade-in">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-          <h2>Processes</h2>
-          <input 
-            type="text" 
-            placeholder="Search processes..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ 
-              background: 'var(--surface-secondary)', 
-              border: '1px solid var(--glass-border)',
-              color: 'white',
-              padding: '8px 16px',
-              borderRadius: '8px',
-              width: '240px'
-            }}
-          />
-        </div>
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>PID</th>
-                <th>Name</th>
-                <th>User</th>
-                <th>Memory</th>
-                <th>Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredProcs.slice(0, 50).map(p => (
-                <tr key={p.pid}>
-                  <td style={{ fontWeight: '600' }}>{p.pid}</td>
-                  <td>{p.name}</td>
-                  <td>{p.username}</td>
-                  <td>{p.memory_mb.toFixed(1)} MB</td>
-                  <td className="text-muted">{new Date(p.create_time).toLocaleTimeString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+  const filteredProcesses = useMemo(() => {
+    const procList = Object.values(processes);
+    if (!searchQuery) return processes;
+    const query = searchQuery.toLowerCase();
+    const filtered = procList.filter(p => 
+      p.name.toLowerCase().includes(query) || 
+      p.pid.toString().includes(query) ||
+      p.cmdline.toLowerCase().includes(query)
     );
-  };
+    // Convert back to Record
+    return filtered.reduce((acc, p) => {
+      acc[p.pid] = p;
+      return acc;
+    }, {} as Record<number, ProcInfo>);
+  }, [processes, searchQuery]);
 
-  const renderPorts = () => {
-    return (
-      <div className="view-fade-in">
-        <h2>Network Ports</h2>
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Port</th>
-                <th>Process</th>
-                <th>PID</th>
-                <th>Status</th>
-                <th>First Seen</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ports.map((p, idx) => (
-                <tr key={`${p.port}-${idx}`}>
-                  <td style={{ fontWeight: 'bold', color: 'var(--primary)' }}>{p.port}</td>
-                  <td>{p.process?.name || 'Unknown'}</td>
-                  <td>{p.pid}</td>
-                  <td>
-                    {p.orphaned ? 
-                      <span className="badge badge-warning">Orphaned</span> : 
-                      <span className="badge badge-success">Active</span>
-                    }
-                  </td>
-                  <td className="text-muted">{new Date(p.first_seen).toLocaleTimeString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
+  // Handle simulate kill from PortMonitor or ProcessList
+  const handleSimulateKill = async (pid: number) => {
+    await simulateKill(pid);
   };
 
   return (
-    <>
-      <div className="sidebar">
-        <div style={{ marginBottom: '40px', padding: '0 16px' }}>
-          <h2 style={{ fontSize: '1.25rem', color: 'var(--primary)', margin: 0 }}>RunState</h2>
-          <div className="text-muted" style={{ fontSize: '0.75rem' }}>Local Safety Engine</div>
-        </div>
-        
-        <div className={`nav-item ${activeView === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveView('dashboard')}>
-          Dashboard
-        </div>
-        <div className={`nav-item ${activeView === 'processes' ? 'active' : ''}`} onClick={() => setActiveView('processes')}>
-          Processes
-        </div>
-        <div className={`nav-item ${activeView === 'ports' ? 'active' : ''}`} onClick={() => setActiveView('ports')}>
-          Ports
-        </div>
-
-        <div style={{ marginTop: 'auto', padding: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-             <div style={{ width: 8, height: 8, borderRadius: '50%', background: status === 'ready' ? 'var(--accent)' : 'var(--danger)' }}></div>
-             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-               {status === 'ready' ? 'Engine Connected' : 'Engine Disconnected'}
-             </span>
-          </div>
-        </div>
-      </div>
+    <div style={{ display: 'contents' }}>
+      <Sidebar 
+        activeView={activeView}
+        setActiveView={setActiveView}
+        status={status}
+        theme={theme}
+        toggleTheme={toggleTheme}
+        forgottenCount={forgottenPortsCount}
+        orphanedCount={orphanedPortsCount}
+      />
 
       <main className="main-content">
-        {activeView === 'dashboard' && renderDashboard()}
-        {activeView === 'processes' && renderProcesses()}
-        {activeView === 'ports' && renderPorts()}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}>🔍</span>
+            <input 
+              type="text" 
+              className="search-input" 
+              placeholder="Search processes, ports..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: '36px', width: '300px' }}
+            />
+          </div>
+        </div>
+
+         {activeView === 'dashboard' && (
+           <Dashboard 
+             processes={processes} 
+             ports={ports} 
+             forgottenPortsCount={forgottenPortsCount}
+           />
+         )}
+         {activeView === 'ports' && (
+           <PortMonitor 
+             ports={filteredPorts} 
+             processes={processes} 
+             onSimulateKill={handleSimulateKill}
+             killState={killState}
+           />
+         )}
+         {activeView === 'processes' && (
+           <ProcessList 
+             processes={filteredProcesses} 
+             ports={ports} 
+             onSimulateKill={handleSimulateKill}
+             killState={killState}
+           />
+         )}
+         {activeView === 'settings' && (
+           <Settings />
+         )}
       </main>
 
+      {/* Kill confirmation modal */}
+      <KillConfirmModal
+        killState={killState}
+        onConfirm={handleConfirmKill}
+        onCancel={handleCancelKill}
+      />
+
+      {/* Global component-specific CSS transitions and animations */}
       <style dangerouslySetInnerHTML={{ __html: `
-        .view-fade-in {
-          animation: fadeIn 0.4s ease-out;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}} />
-    </>
+        .view-fade-in { animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .port-row { cursor: pointer; transition: background 0.1s; }
+        .port-row.expanded { background: var(--secondary); }
+        
+        .detail-row td { padding: 0; border: none; }
+        .detail-container { padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--secondary); }
+        
+        .detail-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .tab-btn { background: none; border: none; padding: 4px 8px; color: var(--muted-foreground); cursor: pointer; font-size: 0.75rem; font-weight: 500; border-radius: 4px; }
+        .tab-btn:hover { background: var(--muted); }
+        .tab-btn.active { color: var(--foreground); background: var(--muted); }
+        
+        .telemetry-view { background: #000; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.75rem; color: #eee; }
+        .log-line span { color: #666; margin-right: 8px; }
+        .log-line .type { color: #3b82f6; font-weight: bold; margin-right: 8px; }
+        .pulse { color: #10b981; animation: blink 2s infinite; }
+        @keyframes blink { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
+        
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.75rem; }
+        .detail-item .label { color: var(--muted-foreground); display: block; margin-bottom: 2px; }
+        .full-cmd { word-break: break-all; max-height: 80px; overflow-y: auto; display: block; background: var(--background); padding: 4px; border: 1px solid var(--border); border-radius: 2px; font-family: monospace; }
+        
+        .graph-view { padding: 10px; display: flex; justify-content: center; }
+        .tree-node { display: flex; flex-direction: column; align-items: center; position: relative; }
+        .node-box { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.75rem; background: var(--background); }
+        .node-box.root { border-color: var(--ring); border-width: 2px; }
+        .tree-children { display: flex; gap: 12px; margin-top: 16px; }
+        .connector { position: absolute; top: -16px; height: 16px; width: 1px; background: var(--border); }
+        
+        .search-input { background: var(--background); border: 1px solid var(--input); padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; transition: var(--transition); width: 200px; }
+        .search-input:focus { outline: none; border-color: var(--ring); }
+        `}} />
+      <NotificationToast />
+    </div>
   );
 }
 

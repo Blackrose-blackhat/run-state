@@ -9,6 +9,36 @@ struct EngineState {
     port: Mutex<Option<u16>>,
 }
 
+#[tauri::command]
+fn get_engine_port(state: State<EngineState>) -> Option<u16> {
+    *state.port.lock().unwrap()
+}
+
+#[tauri::command]
+async fn kill_process(state: State<'_, EngineState>, pid: u32) -> Result<(), String> {
+    let port = {
+        let guard = state.port.lock().unwrap();
+        guard.ok_or("Engine port not found")?
+    };
+
+    let client = reqwest::Client::new();
+    let res = client
+        .post(format!("http://127.0.0.1:{}/kill", port))
+        .json(&serde_json::json!({ "pid": pid }))
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    if !res.status().is_success() {
+        return Err(res
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string()));
+    }
+
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(EngineState {
@@ -47,7 +77,7 @@ fn main() {
             *state.child.lock().unwrap() = Some(child);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![get_engine_port])
+        .invoke_handler(tauri::generate_handler![get_engine_port, kill_process])
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { .. } = event {
                 let state = window.state::<EngineState>();
@@ -77,9 +107,4 @@ fn main() {
                 }
             }
         });
-}
-
-#[tauri::command]
-fn get_engine_port(state: State<EngineState>) -> Option<u16> {
-    *state.port.lock().unwrap()
 }

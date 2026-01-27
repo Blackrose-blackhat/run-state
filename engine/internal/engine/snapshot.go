@@ -40,10 +40,9 @@ func SnapshotPorts() ([]PortSnapshot, error) {
 	out := []PortSnapshot{} // IMPORTANT
 
 	for _, p := range tcpPorts {
-		pid, ok := ports.InodeToPID(p.Inode)
-		if !ok {
-			continue
-		}
+		pid, _ := ports.InodeToPID(p.Inode)
+		// We no longer continue/skip if pid is 0.
+		// PID 0 represents a system process or a process in a different namespace (Docker).
 
 		key := fmt.Sprintf("%d:%d", p.Port, pid)
 		if seen[key] {
@@ -85,14 +84,19 @@ func SnapshotPorts() ([]PortSnapshot, error) {
 		ps.Orphaned = orphaned
 
 		// Generate insight for this port
+		cmdline := ""
+		name := ""
 		if ps.Process != nil {
-			ps.Insight = GenerateInsight(
-				state.FirstSeen,
-				ps.Process.Cmdline,
-				ps.Process.Name,
-				10*time.Minute, // Forgotten threshold: 10 minutes
-			)
+			cmdline = ps.Process.Cmdline
+			name = ps.Process.Name
 		}
+
+		ps.Insight = GenerateInsight(
+			state.FirstSeen,
+			cmdline,
+			name,
+			10*time.Minute,
+		)
 
 		out = append(out, ps)
 	}

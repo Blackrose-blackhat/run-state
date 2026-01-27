@@ -44,6 +44,30 @@ func main() {
 			return
 		}
 
+		// Also get ports to identify port owners
+		ports, _ := engine.SnapshotPorts()
+		portOwners := make(map[int32]bool)
+		for _, p := range ports {
+			portOwners[p.PID] = true
+		}
+
+		// Enrich with IsDev and Icon
+		for pid, info := range snapshot {
+			_, icon := engine.ExplainProcess(info.Cmdline, info.Name)
+
+			// Strictly dev-centric: recognized dev tool or terminal session
+			// or a port owner that ISN'T a known system process
+			isSystem := (icon == "system")
+			isDevTool := (icon != "system" && icon != "docker") // node, python, go, etc.
+			isContainer := (icon == "docker")
+
+			if isDevTool || isContainer || (portOwners[pid] && !isSystem) {
+				info.IsDev = true
+				info.Icon = icon
+				snapshot[pid] = info
+			}
+		}
+
 		json.NewEncoder(w).Encode(snapshot)
 	})
 
@@ -111,7 +135,50 @@ func main() {
 		json.NewEncoder(w).Encode(simulation)
 	})
 
-	// Graceful kill endpoint with two-phase termination
+	// Data export endpoint - saves directly to Downloads folder
+	mux.HandleFunc("/export", func(w http.ResponseWriter, r *http.Request) {
+		if withCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			Data     string `json:"data"`
+			Filename string `json:"filename"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		home, err := os.UserHomeDir()
+		if err != nil {
+			http.Error(w, "Could not find home directory", http.StatusInternalServerError)
+			return
+		}
+
+		downloadDir := fmt.Sprintf("%s/Downloads", home)
+		if err := os.MkdirAll(downloadDir, 0755); err != nil {
+			http.Error(w, "Could not create downloads directory", http.StatusInternalServerError)
+			return
+		}
+
+		filePath := fmt.Sprintf("%s/%s", downloadDir, req.Filename)
+		if err := os.WriteFile(filePath, []byte(req.Data), 0644); err != nil {
+			http.Error(w, "Failed to write file: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"status": "success",
+			"path":   filePath,
+		})
+	})
+
 	mux.HandleFunc("/kill", func(w http.ResponseWriter, r *http.Request) {
 		if withCORS(w, r) {
 			return

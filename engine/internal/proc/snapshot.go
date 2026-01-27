@@ -17,6 +17,8 @@ type ProcInfo struct {
 	Username   string    `json:"username"`
 	CreateTime time.Time `json:"create_time"`
 	MemoryMB   float64   `json:"memory_mb"`
+	IsDev      bool      `json:"is_dev"`
+	Icon       string    `json:"icon"`
 }
 
 // Snapshot returns a map of current processes, keyed by PID.

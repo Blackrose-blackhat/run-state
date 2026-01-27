@@ -32,6 +32,7 @@ func InodeToPID(inode string) (int32, bool) {
 				continue
 			}
 
+			// Support both socket:[inode] and potentially direct /proc/net links
 			if strings.Contains(link, "socket:["+inode+"]") {
 				p, _ := strconv.Atoi(pid)
 				return int32(p), true
