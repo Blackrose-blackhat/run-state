@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/navbar"
 import "./globals.css"
+import { useEffect } from "react"
 
 export const metadata = {
   title: "RunState | Next-Gen Observability for Linux Developers",
@@ -11,6 +12,16 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (window.localStorage.getItem("theme") === "dark") {
+        document.body.classList.add("dark");
+      } else {
+        document.body.classList.remove("dark");
+      }
+    }
+  }, []);
+
   return (
     <html lang="en" className="scroll-smooth">
       <body className="antialiased font-sans">

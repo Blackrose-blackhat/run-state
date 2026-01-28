@@ -1,10 +1,7 @@
 // src/hooks/usePreferences.ts
 import { createContext, useContext, useState, ReactNode } from 'react';
 
-type Theme = 'light' | 'dark';
-
 type Preferences = {
-  theme: Theme;
   language: string; // e.g., 'en', 'es'
   showAnimations: boolean;
 };
@@ -12,7 +9,6 @@ type Preferences = {
 type PreferencesContextType = {
   preferences: Preferences;
   setPreferences: (prefs: Preferences) => void;
-  toggleTheme: () => void;
 };
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -21,31 +17,30 @@ export const PreferencesProvider = ({ children }: { children: ReactNode }) => {
   const [preferences, setPreferences] = useState<Preferences>(() => {
     const stored = localStorage.getItem('preferences');
     if (stored) {
-      return JSON.parse(stored) as Preferences;
+      try {
+        const parsed = JSON.parse(stored);
+        return {
+          language: parsed.language || 'en',
+          showAnimations: parsed.showAnimations !== undefined ? parsed.showAnimations : true,
+        };
+      } catch (e) {
+        console.error("Failed to parse preferences", e);
+      }
     }
     // default preferences
     return {
-      theme: 'dark', // default to dark as per user request
       language: 'en',
       showAnimations: true,
     };
   });
 
-  const toggleTheme = () => {
-    const newTheme = preferences.theme === 'dark' ? 'light' : 'dark';
-    const updated = { ...preferences, theme: newTheme };
-    setPreferences(updated);
-    localStorage.setItem('preferences', JSON.stringify(updated));
-    document.documentElement.setAttribute('data-theme', newTheme);
+  const updatePreferences = (newPrefs: Preferences) => {
+    setPreferences(newPrefs);
+    localStorage.setItem('preferences', JSON.stringify(newPrefs));
   };
 
-  // sync theme on load
-  if (typeof document !== 'undefined') {
-    document.documentElement.setAttribute('data-theme', preferences.theme);
-  }
-
   return (
-    <PreferencesContext.Provider value={{ preferences, setPreferences, toggleTheme }}>
+    <PreferencesContext.Provider value={{ preferences, setPreferences: updatePreferences }}>
       {children}
     </PreferencesContext.Provider>
   );

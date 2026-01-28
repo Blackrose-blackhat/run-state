@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"net"
 	"runstate/engine/internal/ports"
 	"runstate/engine/internal/proc"
@@ -16,7 +17,7 @@ type PortSnapshot struct {
 	Process   *proc.ProcInfo `json:"process,omitempty"`
 	FirstSeen time.Time      `json:"first_seen"`
 	LastSeen  time.Time      `json:"last_seen"`
-	Detached  bool           `json:"detached"`
+	Orphaned  bool           `json:"orphaned"`
 	Insight   *PortInsight   `json:"insight,omitempty"`
 }
 
@@ -72,24 +73,54 @@ func SnapshotPorts() ([]PortSnapshot, error) {
 	}
 
 	now := time.Now()
-	seenThisScan := make(map[portKey]bool)
+
+	// Key by port+localAddr for true uniqueness
+	type dedupKey struct {
+		Port      int
+		LocalAddr string
+	}
+
+	seenThisScan := make(map[dedupKey]bool)
+	stateKeys := make(map[portKey]dedupKey) // Map old state keys to new dedup keys
 	out := []PortSnapshot{}
 
 	for _, p := range tcpPorts {
-		key := portKey{
-			Port:  p.Port,
-			Inode: p.Inode,
+		dKey := dedupKey{
+			Port:      p.Port,
+			LocalAddr: p.LocalAddr,
 		}
 
-		if seenThisScan[key] {
+		// Skip true duplicates first
+		if seenThisScan[dKey] {
 			continue
 		}
-		seenThisScan[key] = true
+		seenThisScan[dKey] = true
 
 		pid, _ := ports.InodeToPID(p.Inode)
-
 		info, hasProc := procs[pid]
-		if hasProc && IsNoiseProcess(info.Cmdline, info.Name) {
+
+		// Skip noise but continue tracking
+		isNoise := hasProc && IsNoiseProcess(info.Cmdline, info.Name)
+
+		// State key using port+PID instead of inode
+		sKey := portKey{
+			Port:  p.Port,
+			Inode: fmt.Sprintf("%d", pid), // Use PID as stable identifier
+		}
+
+		stateMu.Lock()
+		entry, exists := portState[sKey]
+		if !exists {
+			entry = &portStateEntry{FirstSeen: now}
+			portState[sKey] = entry
+		}
+		entry.LastSeen = now
+		entry.Misses = 0
+		stateKeys[sKey] = dKey
+		stateMu.Unlock()
+
+		// Skip noise from output after tracking state
+		if isNoise {
 			continue
 		}
 
@@ -98,62 +129,36 @@ func SnapshotPorts() ([]PortSnapshot, error) {
 			LocalAddr: p.LocalAddr,
 			Interface: getInterface(p.LocalAddr),
 			PID:       pid,
+			FirstSeen: entry.FirstSeen,
+			LastSeen:  entry.LastSeen,
 		}
 
 		if hasProc {
 			ps.Process = &info
-		}
 
-		/* -------- state update (after filtering) -------- */
-
-		stateMu.Lock()
-		entry, exists := portState[key]
-		if !exists {
-			entry = &portStateEntry{FirstSeen: now}
-			portState[key] = entry
-		}
-		entry.LastSeen = now
-		entry.Misses = 0
-		stateMu.Unlock()
-
-		ps.FirstSeen = entry.FirstSeen
-		ps.LastSeen = entry.LastSeen
-
-		/* -------- detached detection -------- */
-
-		if ps.Process != nil {
-			ppid := ps.Process.PPID
-			if ppid > 1 {
-				if _, ok := procs[ppid]; !ok {
-					ps.Detached = true
+			// Check orphaned status
+			if info.PPID > 1 {
+				if _, ok := procs[info.PPID]; !ok {
+					ps.Orphaned = true
 				}
 			}
+
+			ps.Insight = GenerateInsight(
+				entry.FirstSeen,
+				info.Cmdline,
+				info.Name,
+				10*time.Minute,
+			)
 		}
-
-		/* -------- insight -------- */
-
-		cmdline := ""
-		name := ""
-		if ps.Process != nil {
-			cmdline = ps.Process.Cmdline
-			name = ps.Process.Name
-		}
-
-		ps.Insight = GenerateInsight(
-			entry.FirstSeen,
-			cmdline,
-			name,
-			10*time.Minute,
-		)
 
 		out = append(out, ps)
 	}
 
-	/* -------- prune disappeared ports -------- */
-
+	// Prune using the new dedup keys
 	stateMu.Lock()
 	for k, v := range portState {
-		if !seenThisScan[k] {
+		dKey, tracked := stateKeys[k]
+		if !tracked || !seenThisScan[dKey] {
 			v.Misses++
 			if v.Misses > 3 {
 				delete(portState, k)

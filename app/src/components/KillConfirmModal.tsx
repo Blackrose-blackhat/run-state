@@ -1,5 +1,15 @@
 import React from "react";
 import { KillState } from "../types";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
+import { ShieldAlert, AlertTriangle, Activity, Loader2 } from "lucide-react";
 
 interface KillConfirmModalProps {
   killState: KillState;
@@ -8,87 +18,76 @@ interface KillConfirmModalProps {
 }
 
 /**
- * Modal for kill simulation preview and confirmation.
- * Shows impact analysis before terminating a process.
+ * Modal for kill simulation preview and confirmation using Shadcn UI.
  */
 export const KillConfirmModal: React.FC<KillConfirmModalProps> = ({
   killState,
   onConfirm,
   onCancel,
 }) => {
-  if (killState.status !== "confirming" && killState.status !== "terminating") {
-    return null;
-  }
-
+  const isOpen = killState.status === "confirming" || killState.status === "terminating";
   const isTerminating = killState.status === "terminating";
   const simulation = killState.status === "confirming" ? killState.simulation : null;
 
   return (
-    <div className="modal-overlay" onClick={onCancel} style={{ backdropFilter: 'blur(4px)', background: 'rgba(2, 6, 23, 0.4)' }}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ boxShadow: 'var(--shadow-lg)' }}>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent className="sm:max-w-[480px] p-0 overflow-hidden border-border/50 shadow-2xl">
         {/* Header */}
-        <div className="modal-header" style={{ padding: '20px 24px', background: 'var(--card)' }}>
-          {simulation?.is_protected ? (
-            <span className="modal-icon" style={{ filter: 'drop-shadow(0 0 8px rgba(239, 68, 68, 0.3))' }}>🔒</span>
-          ) : (
-            <span className="modal-icon" style={{ filter: 'drop-shadow(0 0 8px rgba(245, 158, 11, 0.3))' }}>⚠️</span>
-          )}
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 800 }}>
-            {simulation?.is_protected
-              ? "System-Critical Guard"
-              : "Termination Preview"}
-          </h3>
-        </div>
+        <DialogHeader className="p-6 pb-0 flex-row items-center gap-4 space-y-0">
+          <div className={`p-2.5 rounded-xl ${simulation?.is_protected ? 'bg-destructive/10 text-destructive' : 'bg-warning/10 text-warning'}`}>
+            {simulation?.is_protected ? <ShieldAlert className="size-6" /> : <AlertTriangle className="size-6" />}
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <DialogTitle className="text-xl font-bold tracking-tight">
+              {simulation?.is_protected ? "System-Critical Guard" : "Termination Preview"}
+            </DialogTitle>
+            <DialogDescription className="text-xs font-semibold uppercase tracking-wider opacity-60">
+              Impact Analysis Snapshot
+            </DialogDescription>
+          </div>
+        </DialogHeader>
 
         {/* Body */}
-        <div className="modal-body" style={{ padding: '24px' }}>
+        <div className="p-6 pt-2 space-y-6">
           {simulation ? (
             <>
               {/* Target Process */}
-              <div className="target-info" style={{ 
-                background: 'var(--secondary)', 
-                padding: '16px', 
-                borderRadius: '12px',
-                border: '1px solid var(--border)' 
-              }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <span className="text-muted" style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase' }}>Target Entity</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <code style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--foreground)' }}>{simulation.target_process?.name || "Unknown"}</code>
-                    <span className="text-muted" style={{ fontWeight: 600 }}>PID {simulation.target_pid}</span>
+              <div className="bg-secondary/40 border border-border/40 p-5 rounded-2xl relative overflow-hidden group">
+                <div className="flex flex-col gap-1.5 relative z-10">
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground/60 tracking-widest">Target Entity</span>
+                  <div className="flex items-center gap-3">
+                    <code className="text-lg font-black text-foreground">{simulation.target_process?.name || "Unknown"}</code>
+                    <span className="px-2 py-0.5 bg-background/50 rounded-md text-xs font-bold border border-border/20 text-muted-foreground">PID {simulation.target_pid}</span>
                   </div>
                 </div>
+                <Activity className="absolute -bottom-4 -right-4 size-24 opacity-[0.03] rotate-12 group-hover:opacity-[0.06] transition-opacity" />
               </div>
 
               {/* Protected Warning */}
               {simulation.is_protected && simulation.protected_reason && (
-                <div className="protected-warning" style={{ 
-                  marginTop: '16px',
-                  background: 'rgba(239, 68, 68, 0.05)',
-                  border: '1px solid rgba(239, 68, 68, 0.2)',
-                  color: 'var(--destructive)',
-                  fontWeight: 500,
-                  fontSize: '0.875rem'
-                }}>
-                  <strong style={{ fontWeight: 800 }}>Critical:</strong> {simulation.protected_reason}
+                <div className="bg-destructive/10 border border-destructive/20 p-4 rounded-xl flex gap-3 items-start animate-in fade-in slide-in-from-top-2">
+                  <ShieldAlert className="size-5 text-destructive shrink-0 mt-0.5" />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-sm font-bold text-destructive">Restricted Action</span>
+                    <span className="text-xs text-destructive/80 leading-relaxed font-medium">{simulation.protected_reason}</span>
+                  </div>
                 </div>
               )}
 
-              {/* Impact Summary */}
-              {(simulation.child_processes.length > 0 ||
-                simulation.affected_ports.length > 0) && (
-                <div className="impact-summary" style={{ marginTop: '20px' }}>
-                  <div className="metric-label" style={{ marginBottom: '12px', fontSize: '0.7rem' }}>Collateral Impact</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* Impact Details */}
+              {(simulation.child_processes.length > 0 || simulation.affected_ports.length > 0) && (
+                <div className="space-y-3">
+                  <h4 className="text-[10px] uppercase font-bold text-muted-foreground/40 tracking-widest px-1">Collateral Impact</h4>
+                  <div className="grid grid-cols-1 gap-2">
                     {simulation.child_processes.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', fontWeight: 500 }}>
-                        <span style={{ color: 'var(--primary)' }}>•</span>
-                        <span>{simulation.child_processes.length} dependant process{simulation.child_processes.length > 1 ? "es" : ""}</span>
+                      <div className="flex items-center gap-3 p-3 bg-secondary/20 rounded-xl border border-border/5 text-sm font-medium">
+                        <div className="size-1.5 rounded-full bg-primary/40 shadow-[0_0_8px_rgba(var(--primary),0.4)]" />
+                        <span>{simulation.child_processes.length} dependant process{simulation.child_processes.length > 1 ? "es" : ""} affected</span>
                       </div>
                     )}
                     {simulation.affected_ports.length > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', fontWeight: 500 }}>
-                        <span style={{ color: 'var(--primary)' }}>•</span>
+                      <div className="flex items-center gap-3 p-3 bg-secondary/20 rounded-xl border border-border/5 text-sm font-medium">
+                        <div className="size-1.5 rounded-full bg-warning/40 shadow-[0_0_8px_rgba(var(--warning),0.4)]" />
                         <span>Releasing Ports: {simulation.affected_ports.map((p) => `:${p}`).join(", ")}</span>
                       </div>
                     )}
@@ -98,52 +97,55 @@ export const KillConfirmModal: React.FC<KillConfirmModalProps> = ({
 
               {/* Warnings */}
               {simulation.warnings.length > 0 && (
-                <div style={{ marginTop: '20px', padding: '12px', background: 'var(--muted)', borderRadius: '8px' }}>
+                <div className="space-y-2">
                   {simulation.warnings.map((w, i) => (
-                    <div key={i} style={{ fontSize: '0.8rem', fontWeight: 500, color: 'var(--muted-foreground)', display: 'flex', gap: '8px' }}>
-                      <span>💡</span> <span>{w}</span>
+                    <div key={i} className="text-[11px] font-medium text-muted-foreground/70 flex gap-2.5 px-1 items-center">
+                      <div className="size-1 rounded-full bg-muted-foreground/30" />
+                      <span>{w}</span>
                     </div>
                   ))}
                 </div>
               )}
             </>
           ) : isTerminating ? (
-            <div className="terminating-status">
-              <div className="spinner" style={{ width: '32px', height: '32px' }} />
-              <div style={{ fontWeight: 700, fontSize: '0.9rem', marginTop: '12px' }}>
-                {killState.phase === "sigterm"
-                  ? "Graceful Signal Sent..."
-                  : "Forced Shutdown in Progress..."}
+            <div className="flex flex-col items-center justify-center py-12 gap-4 animate-in fade-in zoom-in-95">
+              <div className="relative">
+                <Loader2 className="size-10 text-primary animate-spin" />
+                <div className="absolute inset-0 bg-primary/10 blur-xl rounded-full" />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-sm font-bold text-foreground">
+                  {killState.phase === "sigterm" ? "Graceful Signal Sent" : "Forced Shutdown in Progress"}
+                </span>
+                <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-widest">Awaiting Runtime Response</span>
               </div>
             </div>
           ) : null}
         </div>
 
         {/* Footer */}
-        <div className="modal-footer" style={{ padding: '20px 24px', background: 'var(--muted)' }}>
-          <button
-            className="btn btn-ghost"
+        <DialogFooter className="p-6 bg-secondary/30 border-t border-border/20 sm:justify-between gap-4">
+          <Button
+            variant="ghost"
             onClick={onCancel}
             disabled={isTerminating}
-            style={{ fontWeight: 700 }}
+            className="font-bold hover:bg-background/80"
           >
-            Abort
-          </button>
+            Abort Action
+          </Button>
           {simulation && (
-            <button
-              className={`btn ${simulation.is_protected ? 'btn-danger' : 'btn-primary'}`}
+            <Button
+              variant={simulation.is_protected ? "destructive" : "default"}
               onClick={() => onConfirm(simulation.is_protected)}
               disabled={isTerminating}
-              style={{ padding: '10px 24px', borderRadius: '8px' }}
+              className={`font-bold px-8 shadow-lg transition-all active:scale-95 ${simulation.is_protected ? 'shadow-destructive/20' : 'shadow-primary/20'}`}
             >
-              {simulation.is_protected
-                ? "Override Guard"
-                : "Confirm Termination"}
-            </button>
+              {simulation.is_protected ? "Override Guard" : "Confirm Termination"}
+            </Button>
           )}
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

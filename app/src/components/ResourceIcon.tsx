@@ -14,7 +14,7 @@ export const ResourceIcon: React.FC<ResourceIconProps> = ({
   size = 18,
   className = "" 
 }) => {
-  const icons: Record<string, JSX.Element> = {
+  const icons: Record<string, React.ReactNode> = {
     docker: (
       <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M22 7.7c0-.6-.4-1.2-.8-1.5.3-.2.8-.5.8-1.2 0-.6-.4-1.1-.9-1.3.2-.3.4-.6.4-1 0-.6-.5-1.1-1.1-1.1h-1.8c-.1-1.1-1-2-2.1-2h-2.1c-1.1 0-2 .9-2.1 2H3.5C2.7 2.6 2 3.3 2 4.1v15.8c0 .8.7 1.5 1.5 1.5h17c.8 0 1.5-.7 1.5-1.5V7.7z" />

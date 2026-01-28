@@ -1,4 +1,6 @@
 import React, { useMemo } from "react";
+import { Activity } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { ProcInfo, PortSnapshot } from "../types";
 import { downloadCSV, downloadJSON } from "../lib/export";
 
@@ -91,46 +93,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
       {/* Details section */}
       <div className="section-grid">
-        <div className="card card-premium">
-          <h3 className="metric-label">System State</h3>
-          <p className="text-muted" style={{ lineHeight: 1.6 }}>
-            RunState is currently monitoring <strong>{metrics.activeProcesses}</strong> processes. 
-            Identified <strong>{metrics.portCount}</strong> active endpoints, including system services and containers.
+        <div className="card card-premium bg-gradient-to-br from-card to-secondary/20">
+          <h3 className="metric-label opacity-70">System State</h3>
+          <p className="text-muted leading-relaxed">
+            RunState is currently monitoring <strong className="text-foreground">{metrics.activeProcesses}</strong> processes. 
+            Identified <strong className="text-foreground">{metrics.portCount}</strong> active endpoints, including system services and containers.
           </p>
           {forgottenPortsCount > 0 && (
-            <div className="urgent-bg" style={{ 
-              marginTop: '16px', 
-              padding: '12px', 
-              borderRadius: '8px',
-              fontSize: '0.875rem',
-              border: '1px solid var(--warning)'
-            }}>
-              <span style={{ color: 'var(--warning)', fontWeight: 600 }}>Action Required:</span> {forgottenPortsCount} forgotten development server{forgottenPortsCount > 1 ? 's' : ''} detected.
+            <div className="urgent-bg mt-5 p-4 rounded-xl text-sm border">
+              <span className="text-warning font-bold mr-1">Action Required:</span> {forgottenPortsCount} forgotten development server{forgottenPortsCount > 1 ? 's' : ''} detected.
             </div>
           )}
         </div>
 
-        <div className="card">
-          <h3 className="metric-label">Data Export</h3>
-          <p className="text-muted" style={{ marginBottom: '20px' }}>Generate snapshots of your current system state.</p>
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+        <div className="card bg-gradient-to-br from-card to-secondary/10">
+          <h3 className="metric-label opacity-70">Data Export</h3>
+          <p className="text-muted mb-6">Generate snapshots of your current system state for audit or analysis.</p>
+          <div className="flex flex-wrap gap-3">
             <button 
-              className="btn btn-secondary" 
+              className="btn btn-secondary h-11 px-6 shadow-sm hover:shadow-md" 
               onClick={() => downloadCSV(Object.values(processes), 'processes.csv')}
             >
               Processes CSV
             </button>
             <button 
-              className="btn btn-secondary" 
+              className="btn btn-secondary h-11 px-6 shadow-sm hover:shadow-md" 
               onClick={() => downloadCSV(ports, 'ports.csv')}
             >
               Ports CSV
             </button>
             <button 
-              className="btn btn-primary" 
+              className="btn btn-primary h-11 px-8 shadow-md shadow-primary/20 hover:shadow-lg hover:shadow-primary/30" 
               onClick={() => downloadJSON({ processes, ports }, 'runstate-audit.json')}
             >
-              Full JSON
+              Full JSON Snapshot
             </button>
           </div>
         </div>
@@ -148,17 +144,25 @@ interface MetricCardProps {
 }
 
 const MetricCard: React.FC<MetricCardProps> = ({ label, value, urgent, danger, icon }) => {
-  const cardClass = `card ${urgent ? 'urgent-bg' : ''} ${danger ? 'danger-bg' : ''}`;
-  const valueColor = danger ? 'var(--destructive)' : urgent ? 'var(--warning)' : 'var(--foreground)';
+  const cardClass = cn(
+    "card group cursor-default transition-all duration-300",
+    urgent && "urgent-bg ring-1 ring-warning/20",
+    danger && "danger-bg ring-1 ring-destructive/20"
+  );
+  
+  const valueColor = danger ? 'text-destructive' : urgent ? 'text-warning' : 'text-foreground';
 
   return (
     <div className={cardClass}>
-      <div className="metric-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        {icon && <span>{icon}</span>}
-        {label}
+      <div className="metric-label flex items-center gap-2 mb-3 opacity-60 group-hover:opacity-100 transition-opacity">
+        {icon && <span className="text-lg">{icon}</span>}
+        <span className="font-bold tracking-wider">{label}</span>
       </div>
-      <div className="metric-value" style={{ color: valueColor }}>
+      <div className={cn("metric-value truncate", valueColor)}>
         {value}
+      </div>
+      <div className="absolute -bottom-2 -right-2 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity rotate-12 pointer-events-none">
+        <Activity className="size-24" />
       </div>
     </div>
   );
@@ -172,18 +176,20 @@ interface AgeBreakdownProps {
 }
 
 const AgeBreakdown: React.FC<AgeBreakdownProps> = ({ label, count, color, description }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-    <div style={{ 
-      width: 14, 
-      height: 14, 
-      borderRadius: '50%', 
-      background: color,
-      boxShadow: count > 0 ? `0 0 12px ${color}88` : 'none',
-      border: '2px solid white'
-    }} />
-    <div>
-      <div style={{ fontWeight: 700, fontSize: '1rem' }}>{count} {label}</div>
-      <div className="text-muted" style={{ fontSize: '0.75rem', fontWeight: 500 }}>{description}</div>
+  <div className="flex items-center gap-4 transition-transform hover:translate-x-1 duration-200">
+    <div 
+      className="size-3.5 rounded-full ring-2 ring-background shadow-[0_0_12px_rgba(0,0,0,0.1)]"
+      style={{ 
+        background: color,
+        boxShadow: count > 0 ? `0 0 16px ${color}66` : 'none',
+      }} 
+    />
+    <div className="flex flex-col">
+      <div className="flex items-baseline gap-2">
+        <span className="font-bold text-lg leading-none">{count}</span>
+        <span className="text-sm font-semibold opacity-60 lowercase">{label}</span>
+      </div>
+      <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground/40">{description}</div>
     </div>
   </div>
 );

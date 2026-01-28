@@ -23,7 +23,7 @@ export interface PortSnapshot {
   port: number;
   pid: number;
   local_addr: string;
-  interface: "local" | "public" | "all";
+  interface: "loopback" | "any" | "private" | "public" | "unknown";
   process?: ProcInfo;
   first_seen: string;
   last_seen: string;

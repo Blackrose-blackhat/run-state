@@ -1,8 +1,10 @@
 import React from 'react';
 import { usePreferences } from '../hooks/usePreferences';
+import { useTheme } from 'next-themes';
 
 export const Settings: React.FC = () => {
-  const { preferences, setPreferences, toggleTheme } = usePreferences();
+  const { preferences, setPreferences } = usePreferences();
+  const { theme, setTheme } = useTheme();
 
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setPreferences({ ...preferences, language: e.target.value });
@@ -24,8 +26,8 @@ export const Settings: React.FC = () => {
             <div style={{ fontWeight: 500 }}>Theme</div>
             <div className="text-muted" style={{ fontSize: '0.875rem' }}>Switch between light and dark mode</div>
           </div>
-          <button className="btn btn-secondary" onClick={toggleTheme}>
-            {preferences.theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
+          <button className="btn btn-secondary" onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}>
+            {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
           </button>
         </div>
 

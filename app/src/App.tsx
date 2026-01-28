@@ -1,16 +1,14 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useEngine } from "./hooks/useEngine";
 import { Sidebar } from "./components/Sidebar";
 import { Dashboard } from "./components/Dashboard";
 import { PortMonitor } from "./components/PortMonitor";
 import { ProcessList } from "./components/ProcessList";
 import { KillConfirmModal } from "./components/KillConfirmModal";
-import { ProcInfo, View } from "./types";
-import { usePreferences } from "./hooks/usePreferences";
+import { View } from "./types";
 import { Settings } from "./components/Settings";
 import { NotificationToast } from "./components/NotificationToast";
 
-import { Search } from "lucide-react";
 import { SidebarProvider } from "./components/ui/sidebar";
 
 /**
@@ -31,9 +29,6 @@ function App() {
   } = useEngine();
   
   const [activeView, setActiveView] = useState<View>("dashboard");
-  const [searchQuery, setSearchQuery] = useState("");
-  const { preferences, toggleTheme } = usePreferences();
-  const theme = preferences.theme;
 
   // Handle kill confirmation from modal
   const handleConfirmKill = async (force?: boolean) => {
@@ -57,32 +52,8 @@ function App() {
   };
 
   // Filtered data based on search query
-  const filteredPorts = useMemo(() => {
-    if (!searchQuery) return ports;
-    const query = searchQuery.toLowerCase();
-    return ports.filter(p => 
-      p.port.toString().includes(query) || 
-      p.pid.toString().includes(query) ||
-      p.process?.name.toLowerCase().includes(query) ||
-      p.process?.cmdline.toLowerCase().includes(query)
-    );
-  }, [ports, searchQuery]);
-
-  const filteredProcesses = useMemo(() => {
-    const procList = Object.values(processes);
-    if (!searchQuery) return processes;
-    const query = searchQuery.toLowerCase();
-    const filtered = procList.filter(p => 
-      p.name.toLowerCase().includes(query) || 
-      p.pid.toString().includes(query) ||
-      p.cmdline.toLowerCase().includes(query)
-    );
-    // Convert back to Record
-    return filtered.reduce((acc, p) => {
-      acc[p.pid] = p;
-      return acc;
-    }, {} as Record<number, ProcInfo>);
-  }, [processes, searchQuery]);
+  const filteredPorts = ports;
+  const filteredProcesses = processes;
 
   // Handle simulate kill from PortMonitor or ProcessList
   const handleSimulateKill = async (pid: number) => {
@@ -91,58 +62,51 @@ function App() {
 
   return (
     <SidebarProvider>
-      <div className="flex w-full h-full min-h-screen bg-background font-sans antialiased text-foreground">
+      <div className="flex w-full h-full bg-neutral-300/20 min-h-screen  font-sans antialiased text-foreground selection:bg-primary/20 selection:text-primary">
         <Sidebar 
+        
           activeView={activeView}
           setActiveView={setActiveView}
           status={status}
-          theme={theme}
-          toggleTheme={toggleTheme}
           forgottenCount={forgottenPortsCount}
-          orphanedCount={orphanedPortsCount}
+          orphanedPortsCount={orphanedPortsCount}
         />
+        <div className="flex-1 flex flex-col min-w-0 py-5  " >
+        <section className="bg-background  flex-1  min-w-full rounded-tl-2xl rounded-bl-2xl flex flex-col">
+          
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="flex justify-end mb-6">
-            <div className="relative w-full max-w-sm">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <input 
-                type="text" 
-                className="flex h-10 w-full rounded-xl border border-input bg-background px-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all" 
-                placeholder="Search processes, ports..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+          <main className="flex-1 overflow-y-auto p-6 md:p-10">
+            <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-500">
+               {activeView === 'dashboard' && (
+                 <Dashboard 
+                   processes={processes} 
+                   ports={ports} 
+                   forgottenPortsCount={forgottenPortsCount}
+                 />
+               )}
+               {activeView === 'ports' && (
+                 <PortMonitor 
+                   ports={filteredPorts} 
+                   processes={processes} 
+                   onSimulateKill={handleSimulateKill}
+                   killState={killState}
+                 />
+               )}
+               {activeView === 'processes' && (
+                 <ProcessList 
+                   processes={filteredProcesses} 
+                   ports={ports} 
+                   onSimulateKill={handleSimulateKill}
+                   killState={killState}
+                 />
+               )}
+               {activeView === 'settings' && (
+                 <Settings />
+               )}
             </div>
-          </div>
-
-           {activeView === 'dashboard' && (
-             <Dashboard 
-               processes={processes} 
-               ports={ports} 
-               forgottenPortsCount={forgottenPortsCount}
-             />
-           )}
-           {activeView === 'ports' && (
-             <PortMonitor 
-               ports={filteredPorts} 
-               processes={processes} 
-               onSimulateKill={handleSimulateKill}
-               killState={killState}
-             />
-           )}
-           {activeView === 'processes' && (
-             <ProcessList 
-               processes={filteredProcesses} 
-               ports={ports} 
-               onSimulateKill={handleSimulateKill}
-               killState={killState}
-             />
-           )}
-           {activeView === 'settings' && (
-             <Settings />
-           )}
-        </main>
+          </main>
+        </section>
+        </div>
 
         {/* Kill confirmation modal */}
         <KillConfirmModal
@@ -155,5 +119,6 @@ function App() {
     </SidebarProvider>
   );
 }
+
 
 export default App;
