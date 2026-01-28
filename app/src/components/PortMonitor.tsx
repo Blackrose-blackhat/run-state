@@ -107,24 +107,37 @@ export const PortMonitor: React.FC<PortMonitorProps> = ({
                       />
                     </td>
                     <td>
-                      <code
-                        style={{ 
-                          fontWeight: 700, 
-                          color: "var(--primary)",
-                          background: 'var(--secondary)',
-                          padding: '2px 6px',
-                          borderRadius: '4px',
-                          fontSize: '0.9rem'
-                        }}
-                      >
-                        :{p.port}
-                      </code>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <code
+                            style={{ 
+                              fontWeight: 700, 
+                              color: "var(--primary)",
+                              background: 'var(--secondary)',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontSize: '0.9rem'
+                            }}
+                          >
+                            :{p.port}
+                          </code>
+                          <span 
+                            className={`badge ${p.interface === 'public' || p.interface === 'all' ? 'badge-warning' : 'badge-success'}`}
+                            style={{ fontSize: '0.65rem', padding: '2px 6px' }}
+                          >
+                            {p.interface.toUpperCase()}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.65rem', color: 'var(--muted-foreground)', fontFamily: 'monospace' }}>
+                          {p.local_addr}
+                        </div>
+                      </div>
                     </td>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <ResourceIcon type={p.insight?.icon} size={16} />
                         <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--foreground)' }}>
-                          {p.process?.name || "System/Container"}
+                          {p.process?.name || (p.pid === 0 ? "System/Container" : "Unknown Process")}
                         </div>
                       </div>
                       <div
@@ -144,7 +157,7 @@ export const PortMonitor: React.FC<PortMonitorProps> = ({
                         }}
                         title={p.process?.cmdline || p.insight?.explanation}
                       >
-                        {p.process?.cmdline || p.insight?.explanation || `PID: ${p.pid}`}
+                        {p.process?.cmdline || p.insight?.explanation || (p.pid === 0 ? "External or System Service" : `PID: ${p.pid}`)}
                       </div>
                     </td>
                     <td>

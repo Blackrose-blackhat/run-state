@@ -5,10 +5,13 @@ import { Dashboard } from "./components/Dashboard";
 import { PortMonitor } from "./components/PortMonitor";
 import { ProcessList } from "./components/ProcessList";
 import { KillConfirmModal } from "./components/KillConfirmModal";
-import { View } from "./types";
+import { ProcInfo, View } from "./types";
 import { usePreferences } from "./hooks/usePreferences";
 import { Settings } from "./components/Settings";
 import { NotificationToast } from "./components/NotificationToast";
+
+import { Search } from "lucide-react";
+import { SidebarProvider } from "./components/ui/sidebar";
 
 /**
  * Main application component for DevResidue.
@@ -87,105 +90,69 @@ function App() {
   };
 
   return (
-    <div style={{ display: 'contents' }}>
-      <Sidebar 
-        activeView={activeView}
-        setActiveView={setActiveView}
-        status={status}
-        theme={theme}
-        toggleTheme={toggleTheme}
-        forgottenCount={forgottenPortsCount}
-        orphanedCount={orphanedPortsCount}
-      />
+    <SidebarProvider>
+      <div className="flex w-full h-full min-h-screen bg-background font-sans antialiased text-foreground">
+        <Sidebar 
+          activeView={activeView}
+          setActiveView={setActiveView}
+          status={status}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          forgottenCount={forgottenPortsCount}
+          orphanedCount={orphanedPortsCount}
+        />
 
-      <main className="main-content">
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '24px' }}>
-          <div style={{ position: 'relative' }}>
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }}>🔍</span>
-            <input 
-              type="text" 
-              className="search-input" 
-              placeholder="Search processes, ports..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '36px', width: '300px' }}
-            />
+        <main className="flex-1 overflow-y-auto p-4 md:p-8">
+          <div className="flex justify-end mb-6">
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <input 
+                type="text" 
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-10 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 transition-all" 
+                placeholder="Search processes, ports..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
-        </div>
 
-         {activeView === 'dashboard' && (
-           <Dashboard 
-             processes={processes} 
-             ports={ports} 
-             forgottenPortsCount={forgottenPortsCount}
-           />
-         )}
-         {activeView === 'ports' && (
-           <PortMonitor 
-             ports={filteredPorts} 
-             processes={processes} 
-             onSimulateKill={handleSimulateKill}
-             killState={killState}
-           />
-         )}
-         {activeView === 'processes' && (
-           <ProcessList 
-             processes={filteredProcesses} 
-             ports={ports} 
-             onSimulateKill={handleSimulateKill}
-             killState={killState}
-           />
-         )}
-         {activeView === 'settings' && (
-           <Settings />
-         )}
-      </main>
+           {activeView === 'dashboard' && (
+             <Dashboard 
+               processes={processes} 
+               ports={ports} 
+               forgottenPortsCount={forgottenPortsCount}
+             />
+           )}
+           {activeView === 'ports' && (
+             <PortMonitor 
+               ports={filteredPorts} 
+               processes={processes} 
+               onSimulateKill={handleSimulateKill}
+               killState={killState}
+             />
+           )}
+           {activeView === 'processes' && (
+             <ProcessList 
+               processes={filteredProcesses} 
+               ports={ports} 
+               onSimulateKill={handleSimulateKill}
+               killState={killState}
+             />
+           )}
+           {activeView === 'settings' && (
+             <Settings />
+           )}
+        </main>
 
-      {/* Kill confirmation modal */}
-      <KillConfirmModal
-        killState={killState}
-        onConfirm={handleConfirmKill}
-        onCancel={handleCancelKill}
-      />
-
-      {/* Global component-specific CSS transitions and animations */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        .view-fade-in { animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-        
-        .port-row { cursor: pointer; transition: background 0.1s; }
-        .port-row.expanded { background: var(--secondary); }
-        
-        .detail-row td { padding: 0; border: none; }
-        .detail-container { padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--secondary); }
-        
-        .detail-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
-        .tab-btn { background: none; border: none; padding: 4px 8px; color: var(--muted-foreground); cursor: pointer; font-size: 0.75rem; font-weight: 500; border-radius: 4px; }
-        .tab-btn:hover { background: var(--muted); }
-        .tab-btn.active { color: var(--foreground); background: var(--muted); }
-        
-        .telemetry-view { background: #000; padding: 12px; border-radius: 4px; font-family: monospace; font-size: 0.75rem; color: #eee; }
-        .log-line span { color: #666; margin-right: 8px; }
-        .log-line .type { color: #3b82f6; font-weight: bold; margin-right: 8px; }
-        .pulse { color: #10b981; animation: blink 2s infinite; }
-        @keyframes blink { 0% { opacity: 0.4; } 50% { opacity: 1; } 100% { opacity: 0.4; } }
-        
-        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.75rem; }
-        .detail-item .label { color: var(--muted-foreground); display: block; margin-bottom: 2px; }
-        .full-cmd { word-break: break-all; max-height: 80px; overflow-y: auto; display: block; background: var(--background); padding: 4px; border: 1px solid var(--border); border-radius: 2px; font-family: monospace; }
-        
-        .graph-view { padding: 10px; display: flex; justify-content: center; }
-        .tree-node { display: flex; flex-direction: column; align-items: center; position: relative; }
-        .node-box { padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border); font-size: 0.75rem; background: var(--background); }
-        .node-box.root { border-color: var(--ring); border-width: 2px; }
-        .tree-children { display: flex; gap: 12px; margin-top: 16px; }
-        .connector { position: absolute; top: -16px; height: 16px; width: 1px; background: var(--border); }
-        
-        .search-input { background: var(--background); border: 1px solid var(--input); padding: 6px 12px; border-radius: var(--radius); font-size: 0.875rem; transition: var(--transition); width: 200px; }
-        .search-input:focus { outline: none; border-color: var(--ring); }
-        `}} />
-      <NotificationToast />
-    </div>
+        {/* Kill confirmation modal */}
+        <KillConfirmModal
+          killState={killState}
+          onConfirm={handleConfirmKill}
+          onCancel={handleCancelKill}
+        />
+        <NotificationToast />
+      </div>
+    </SidebarProvider>
   );
 }
 

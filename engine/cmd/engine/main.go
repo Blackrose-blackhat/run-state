@@ -53,6 +53,12 @@ func main() {
 
 		// Enrich with IsDev and Icon
 		for pid, info := range snapshot {
+			// Skip noise processes
+			if engine.IsNoiseProcess(info.Cmdline, info.Name) {
+				delete(snapshot, pid)
+				continue
+			}
+
 			_, icon := engine.ExplainProcess(info.Cmdline, info.Name)
 
 			// Strictly dev-centric: recognized dev tool or terminal session

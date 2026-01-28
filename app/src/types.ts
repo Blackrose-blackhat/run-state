@@ -22,6 +22,8 @@ export interface PortInsight {
 export interface PortSnapshot {
   port: number;
   pid: number;
+  local_addr: string;
+  interface: "local" | "public" | "all";
   process?: ProcInfo;
   first_seen: string;
   last_seen: string;

@@ -1,26 +1,64 @@
 package engine
 
 import (
-	"fmt"
+	"net"
 	"runstate/engine/internal/ports"
 	"runstate/engine/internal/proc"
+	"sync"
 	"time"
 )
 
 type PortSnapshot struct {
 	Port      int            `json:"port"`
+	LocalAddr string         `json:"local_addr"`
+	Interface string         `json:"interface"` // loopback, any, private, public
 	PID       int32          `json:"pid"`
 	Process   *proc.ProcInfo `json:"process,omitempty"`
 	FirstSeen time.Time      `json:"first_seen"`
 	LastSeen  time.Time      `json:"last_seen"`
-	Orphaned  bool           `json:"orphaned"`
+	Detached  bool           `json:"detached"`
 	Insight   *PortInsight   `json:"insight,omitempty"`
 }
 
-var portState = make(map[string]struct {
+/* -------------------- interface classification -------------------- */
+
+func getInterface(addr string) string {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return "unknown"
+	}
+
+	if ip.IsLoopback() {
+		return "loopback"
+	}
+	if ip.IsUnspecified() {
+		return "any"
+	}
+	if ip.IsPrivate() {
+		return "private"
+	}
+	return "public"
+}
+
+/* -------------------- port state -------------------- */
+
+type portKey struct {
+	Port  int
+	Inode string
+}
+
+type portStateEntry struct {
 	FirstSeen time.Time
 	LastSeen  time.Time
-})
+	Misses    int
+}
+
+var (
+	stateMu   sync.Mutex
+	portState = make(map[portKey]*portStateEntry)
+)
+
+/* -------------------- snapshot -------------------- */
 
 func SnapshotPorts() ([]PortSnapshot, error) {
 	procs, err := proc.Snapshot()
@@ -34,56 +72,66 @@ func SnapshotPorts() ([]PortSnapshot, error) {
 	}
 
 	now := time.Now()
-	seen := make(map[string]bool)
-	seenThisScan := make(map[string]bool)
-
-	out := []PortSnapshot{} // IMPORTANT
+	seenThisScan := make(map[portKey]bool)
+	out := []PortSnapshot{}
 
 	for _, p := range tcpPorts {
-		pid, _ := ports.InodeToPID(p.Inode)
-		// We no longer continue/skip if pid is 0.
-		// PID 0 represents a system process or a process in a different namespace (Docker).
+		key := portKey{
+			Port:  p.Port,
+			Inode: p.Inode,
+		}
 
-		key := fmt.Sprintf("%d:%d", p.Port, pid)
-		if seen[key] {
+		if seenThisScan[key] {
 			continue
 		}
-		seen[key] = true
-
-		state, exists := portState[key]
-		if !exists {
-			state.FirstSeen = now
-		}
-		state.LastSeen = now
-		portState[key] = state
 		seenThisScan[key] = true
+
+		pid, _ := ports.InodeToPID(p.Inode)
+
+		info, hasProc := procs[pid]
+		if hasProc && IsNoiseProcess(info.Cmdline, info.Name) {
+			continue
+		}
 
 		ps := PortSnapshot{
 			Port:      p.Port,
+			LocalAddr: p.LocalAddr,
+			Interface: getInterface(p.LocalAddr),
 			PID:       pid,
-			FirstSeen: state.FirstSeen,
-			LastSeen:  state.LastSeen,
 		}
 
-		if info, ok := procs[pid]; ok {
+		if hasProc {
 			ps.Process = &info
 		}
-		orphaned := false
+
+		/* -------- state update (after filtering) -------- */
+
+		stateMu.Lock()
+		entry, exists := portState[key]
+		if !exists {
+			entry = &portStateEntry{FirstSeen: now}
+			portState[key] = entry
+		}
+		entry.LastSeen = now
+		entry.Misses = 0
+		stateMu.Unlock()
+
+		ps.FirstSeen = entry.FirstSeen
+		ps.LastSeen = entry.LastSeen
+
+		/* -------- detached detection -------- */
 
 		if ps.Process != nil {
 			ppid := ps.Process.PPID
-
-			// PID 1 is always a valid parent (init/systemd)
 			if ppid > 1 {
 				if _, ok := procs[ppid]; !ok {
-					orphaned = true
+					ps.Detached = true
 				}
 			}
 		}
 
-		ps.Orphaned = orphaned
+		/* -------- insight -------- */
 
-		// Generate insight for this port
 		cmdline := ""
 		name := ""
 		if ps.Process != nil {
@@ -92,7 +140,7 @@ func SnapshotPorts() ([]PortSnapshot, error) {
 		}
 
 		ps.Insight = GenerateInsight(
-			state.FirstSeen,
+			entry.FirstSeen,
 			cmdline,
 			name,
 			10*time.Minute,
@@ -101,6 +149,18 @@ func SnapshotPorts() ([]PortSnapshot, error) {
 		out = append(out, ps)
 	}
 
-	return out, nil
+	/* -------- prune disappeared ports -------- */
 
+	stateMu.Lock()
+	for k, v := range portState {
+		if !seenThisScan[k] {
+			v.Misses++
+			if v.Misses > 3 {
+				delete(portState, k)
+			}
+		}
+	}
+	stateMu.Unlock()
+
+	return out, nil
 }

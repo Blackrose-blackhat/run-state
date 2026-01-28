@@ -111,6 +111,16 @@ var DevToolPatterns = []struct {
 	{regexp.MustCompile(`(?i)deno\s`), "Deno process", "node"},
 }
 
+// NoisePatterns contains regexes for processes that should be hidden from snapshots
+var NoisePatterns = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)antigravity`),
+	regexp.MustCompile(`(?i)language_server`),
+	regexp.MustCompile(`(?i)adb`),
+	regexp.MustCompile(`(?i)GradleDaemon`),
+	// System/IDE internal nodes if they are obviously noise
+	regexp.MustCompile(`(?i)node.*language-server`),
+}
+
 // IDE/Editor patterns for forgotten port detection
 var IDEPatterns = []string{
 	"code", "cursor", "zed", "vim", "nvim", "neovim",
@@ -164,6 +174,16 @@ func ExplainProcess(cmdline string, name string) (string, string) {
 func IsDevProcess(cmdline string, name string) bool {
 	_, icon := ExplainProcess(cmdline, name)
 	return icon != "system"
+}
+
+// IsNoiseProcess returns true if a process is likely irrelevant to the user
+func IsNoiseProcess(cmdline string, name string) bool {
+	for _, pattern := range NoisePatterns {
+		if pattern.MatchString(cmdline) || pattern.MatchString(name) {
+			return true
+		}
+	}
+	return false
 }
 
 // CategorizeAge returns the age category and human-readable duration
