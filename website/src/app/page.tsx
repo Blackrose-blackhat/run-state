@@ -178,9 +178,9 @@ export default function LandingPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="secondary"
+                    
                     size="lg"
-                    className="h-16 px-12 text-xl bg-neon-glow font-black text-black transition-all hover:scale-105 gap-3 rounded-none cyber-border border-0 shadow-[0_0_20px_rgba(0,255,136,0.3)]"
+                    className="h-16 px-12 text-xl bg-neon-glow font-black  text-black transition-all hover:scale-105 gap-3 rounded-none cyber-border border-0 shadow-[0_0_20px_rgba(0,255,136,0.3)]"
                   >
                     <LucideDownload size={24} strokeWidth={3} />
                     ACQUIRE ENGINE
@@ -222,6 +222,14 @@ export default function LandingPage() {
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     asChild
+                    className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-3"
+                  >
+                    <span className="w-full text-left text-muted-foreground/60 cursor-not-allowed opacity-60">
+                      Mac (Coming Soon)
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer py-3"
                   >
                     <Link
@@ -233,16 +241,7 @@ export default function LandingPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Link href="#features">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="h-16 px-12 text-xl font-bold border-primary/20 text-primary hover:bg-primary/10 gap-3 rounded-none cyber-border backdrop-blur-md"
-                >
-                  <LucideCirclePlay size={24} />
-                  EXPLORE
-                </Button>
-              </Link>
+             
             </motion.div>
           </div>
         </motion.div>
