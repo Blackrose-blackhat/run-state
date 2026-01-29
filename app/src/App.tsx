@@ -10,19 +10,14 @@ import { SplashScreen } from "./components/SplashScreen";
  * Uses modular components and a custom hook for state management.
  */
 function App() {
-  const { 
-    ports, 
-    killState,
-    simulateKill,
-    killProcess, 
-    resetKillState,
-  } = useEngine();
+  const { ports, killState, simulateKill, killProcess, resetKillState } =
+    useEngine();
 
   // Track if terms were accepted
   const [isInitialized, setIsInitialized] = useState<boolean>(() => {
-    return localStorage.getItem("runstate_initialized") === "true";
+    return localStorage.getItem("portwatch_initialized") === "true";
   });
-  
+
   // Handle kill confirmation from modal
   const handleConfirmKill = async (force?: boolean) => {
     if (killState.status === "confirming") {
@@ -38,7 +33,7 @@ function App() {
       resetKillState();
     }
   }, [killState, resetKillState]);
-  
+
   // Handle modal cancel
   const handleCancelKill = () => {
     resetKillState();
@@ -50,7 +45,7 @@ function App() {
   };
 
   const handleInitialize = () => {
-    localStorage.setItem("runstate_initialized", "true");
+    localStorage.setItem("portwatch_initialized", "true");
     setIsInitialized(true);
   };
 
@@ -64,8 +59,8 @@ function App() {
             <section className="bg-transparent flex-1 min-w-full flex flex-col overflow-hidden">
               <main className="flex-grow flex flex-col overflow-hidden p-6 md:p-10 pt-5">
                 <div className="max-w-[1600px] w-full mx-auto flex flex-col min-h-0 animate-in fade-in duration-500">
-                  <PortMonitor 
-                    ports={ports} 
+                  <PortMonitor
+                    ports={ports}
                     onSimulateKill={handleSimulateKill}
                     killState={killState}
                   />
