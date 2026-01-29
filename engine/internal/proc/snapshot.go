@@ -17,8 +17,8 @@ type ProcInfo struct {
 	Username   string    `json:"username"`
 	CreateTime time.Time `json:"create_time"`
 	MemoryMB   float64   `json:"memory_mb"`
-	IsDev      bool      `json:"is_dev"`
 	Icon       string    `json:"icon"`
+	Cwd        string    `json:"cwd"`
 }
 
 // Snapshot returns a map of current processes, keyed by PID.
@@ -52,6 +52,7 @@ func Snapshot() (map[int32]ProcInfo, error) {
 		ppid, _ := p.Ppid()
 		mem, _ := p.MemoryInfo()
 		ct, _ := p.CreateTime()
+		cwd, _ := p.Cwd()
 
 		memMB := 0.0
 		// Triple-check nil safety for memory info
@@ -76,6 +77,7 @@ func Snapshot() (map[int32]ProcInfo, error) {
 			Username:   user,
 			CreateTime: createTime,
 			MemoryMB:   memMB,
+			Cwd:        cwd,
 		}
 	}
 

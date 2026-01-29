@@ -13,6 +13,8 @@ export interface ProcInfo {
 // Port insight data from the engine
 export interface PortInsight {
   explanation: string;
+  icon: string;
+  category: "dev" | "system" | "unidentified";
   age_category: "fresh" | "lingering" | "forgotten";
   age_duration: string;
   is_forgotten: boolean;
@@ -29,6 +31,20 @@ export interface PortSnapshot {
   last_seen: string;
   orphaned: boolean;
   insight?: PortInsight;
+  traffic?: TrafficInfo;
+  risks?: string[];
+  project?: ProjectInfo;
+}
+
+export interface TrafficInfo {
+  tx_queue: number;
+  rx_queue: number;
+  is_active: boolean;
+}
+
+export interface ProjectInfo {
+  name: string;
+  path: string;
 }
 
 // Kill simulation response for dry-run preview
@@ -58,5 +74,4 @@ export type KillState =
   | { status: "success"; pid: number; message: string }
   | { status: "error"; pid: number; error: string };
 
-export type View = "dashboard" | "ports" | "processes" | "settings";
-export type DetailTab = "telemetry" | "details" | "graph";
+

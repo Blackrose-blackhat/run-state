@@ -1,11 +1,9 @@
-import React, { useState } from "react";
-import { PortSnapshot, ProcInfo, DetailTab, KillState } from "../types";
-import { TelemetryDrawer } from "./TelemetryDrawer";
+import React from "react";
+import { PortSnapshot, KillState } from "../types";
 import { ResourceIcon } from "./ResourceIcon";
 
 interface PortMonitorProps {
   ports: PortSnapshot[];
-  processes: Record<number, ProcInfo>;
   onSimulateKill: (pid: number) => Promise<void>;
   killState: KillState;
 }
@@ -18,407 +16,320 @@ const AgeIndicator: React.FC<{ category?: string; duration?: string }> = ({
   duration,
 }) => {
   const colors = {
-    fresh: "#10b981",
-    lingering: "#f59e0b",
-    forgotten: "#ef4444",
+    fresh: "#00FF41",
+    lingering: "#FFB000",
+    forgotten: "#FF0000",
   };
-  const color = category ? colors[category as keyof typeof colors] : "#94a3b8";
+  const color = category ? colors[category as keyof typeof colors] : "#00FF41";
 
   return (
     <div 
       className="age-indicator" 
-      title={`Open for ${duration || "unknown"}`}
+      title={`${category?.toUpperCase()} - Open for ${duration || "unknown"}`}
       style={{
         display: 'flex',
+        flexDirection: 'column',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        gap: '4px'
       }}
     >
       <div
         className="age-dot"
         style={{
           background: color,
-          boxShadow: category === "forgotten" ? `0 0 10px ${color}66` : "none",
-          width: '10px',
-          height: '10px',
-          borderRadius: '50%',
+          boxShadow: `0 0 10px ${color}`,
+          width: '6px',
+          height: '6px',
+          borderRadius: '0',
           transition: 'all 0.3s ease'
         }}
       />
+      <span style={{ fontSize: '0.45rem', color: color, fontWeight: 'bold' }}>
+        {duration}
+      </span>
+    </div>
+  );
+};
+
+/**
+ * Risk badge component
+ */
+const RiskBadge: React.FC<{ risk: string }> = ({ risk }) => {
+  const styles: Record<string, { bg: string; text: string }> = {
+    PUBLIC_EXPOSURE: { bg: "#FF0000", text: "#000" },
+    ORPHANED_PROCESS: { bg: "#FFB000", text: "#000" },
+    HIDDEN_PROCESS: { bg: "#555", text: "#FFF" },
+  };
+
+  const style = styles[risk] || { bg: "#333", text: "#FFF" };
+
+  return (
+    <span 
+      style={{ 
+        background: style.bg, 
+        color: style.text, 
+        fontSize: '0.6rem', 
+        fontWeight: 'bold', 
+        padding: '1px 4px', 
+        marginLeft: '4px',
+        borderRadius: '2px',
+        textTransform: 'uppercase'
+      }}
+    >
+      {risk.replace('_', ' ')}
+    </span>
+  );
+};
+
+/**
+ * Reusable table component for different port categories
+ */
+const PortTable: React.FC<{
+  title: string;
+  ports: PortSnapshot[];
+  onSimulateKill: (pid: number) => Promise<void>;
+  onKillProject?: (projectName: string) => void;
+  isKilling: number | null;
+  emptyMessage: string;
+}> = ({ title, ports, onSimulateKill, onKillProject, isKilling, emptyMessage }) => {
+  // Group by project for the sweeper action
+  const projects = Array.from(new Set(ports.filter(p => p.project).map(p => p.project!.name)));
+
+  return (
+    <div 
+      className="terminal-card" 
+      style={{ 
+        padding: '16px', 
+        overflow: 'hidden', 
+        border: '2px solid #00FF41',
+        background: '#050505',
+        borderRadius: 0,
+        boxShadow: '0 0 20px rgba(0, 255, 65, 0.1)',
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        marginBottom: '20px'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+        <h2 style={{ margin: 0, fontSize: '1rem', color: '#00FF41', fontWeight: 'bold' }}>
+          [ {title} ]
+        </h2>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {onKillProject && projects.length > 0 && (
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <span style={{ fontSize: '0.6rem', color: 'rgba(0, 255, 65, 0.5)' }}>SWEEP:</span>
+              {projects.map(proj => (
+                <button 
+                  key={proj}
+                  onClick={() => onKillProject(proj)}
+                  className="terminal-btn"
+                  style={{ fontSize: '0.55rem', padding: '1px 4px', background: 'rgba(255, 0, 0, 0.2)', border: '1px solid #FF0000', color: '#FF0000' }}
+                >
+                  {proj.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          )}
+          <span style={{ fontSize: '0.7rem', color: 'rgba(0, 255, 65, 0.5)' }}>COUNT: {ports.length}</span>
+        </div>
+      </div>
+
+      <div style={{ color: '#00FF41', fontFamily: 'monospace', marginBottom: '8px', fontSize: '0.7rem', flexShrink: 0 }}>
+        +------------------------------------------------------------------------------------------------------------------+
+      </div>
+      
+      <div style={{ overflow: 'auto', flex: 1, position: 'relative' }}>
+        <table style={{ width: '100%', minWidth: '1000px', borderCollapse: 'separate', borderSpacing: 0, fontFamily: 'monospace' }}>
+          <thead style={{ position: 'sticky', top: 0, zIndex: 20 }}>
+            <tr style={{ background: '#003B00' }}>
+              <th style={{ padding: '8px', borderRight: '1px solid #00FF41', borderBottom: '2px solid #00FF41', color: '#00FF41', textAlign: 'center', width: '40px' }}>ST</th>
+              <th style={{ padding: '8px', borderRight: '1px solid #00FF41', borderBottom: '2px solid #00FF41', color: '#00FF41', textAlign: 'left', width: '80px' }}>PORT</th>
+              <th style={{ padding: '8px', borderRight: '1px solid #00FF41', borderBottom: '2px solid #00FF41', color: '#00FF41', textAlign: 'left', width: '80px' }}>PID</th>
+              <th style={{ padding: '8px', borderRight: '1px solid #00FF41', borderBottom: '2px solid #00FF41', color: '#00FF41', textAlign: 'left', width: '100px' }}>ACTIVITY</th>
+              <th style={{ padding: '8px', borderRight: '1px solid #00FF41', borderBottom: '2px solid #00FF41', color: '#00FF41', textAlign: 'left', width: '150px' }}>PROCESS / PROJECT</th>
+              <th style={{ padding: '8px', borderRight: '1px solid #00FF41', borderBottom: '2px solid #00FF41', color: '#00FF41', textAlign: 'left' }}>CMDLINE / DETAILS</th>
+              <th style={{ padding: '8px', borderRight: '1px solid #00FF41', borderBottom: '2px solid #00FF41', color: '#00FF41', textAlign: 'center', width: '80px' }}>MEM</th>
+              <th style={{ padding: '8px', borderBottom: '2px solid #00FF41', color: '#00FF41', textAlign: 'right', width: '120px' }}>ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ports.length === 0 ? (
+              <tr>
+                <td colSpan={8} style={{ padding: '48px 24px', textAlign: 'center', color: '#00FF41', border: '1px solid rgba(0, 255, 65, 0.2)' }}>
+                  [ {emptyMessage} ]
+                </td>
+              </tr>
+            ) : (
+              ports.map((p) => {
+                const key = `${p.port}-${p.pid}`;
+                const memStr = p.process?.memory_mb ? `${p.process.memory_mb.toFixed(1)}M` : '0.0M';
+                
+                return (
+                  <tr
+                    key={key}
+                    style={{ 
+                      borderBottom: '1px solid rgba(0, 255, 65, 0.2)',
+                      background: p.insight?.is_forgotten ? 'rgba(255, 0, 0, 0.05)' : 'transparent'
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(0, 255, 65, 0.1)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = p.insight?.is_forgotten ? 'rgba(255, 0, 0, 0.05)' : 'transparent'; }}
+                  >
+                    <td style={{ padding: '8px', borderRight: '1px solid rgba(0, 255, 65, 0.2)', textAlign: 'center' }}>
+                       <AgeIndicator category={p.insight?.age_category} duration={p.insight?.age_duration} />
+                    </td>
+                    <td style={{ padding: '8px', borderRight: '1px solid rgba(0, 255, 65, 0.2)', color: '#00FF41', fontWeight: 800 }}>
+                      :{p.port}
+                    </td>
+                    <td style={{ padding: '8px', borderRight: '1px solid rgba(0, 255, 65, 0.2)', color: 'rgba(0, 255, 65, 0.7)' }}>
+                      {p.pid === 0 ? '-' : p.pid}
+                    </td>
+                    <td style={{ padding: '8px', borderRight: '1px solid rgba(0, 255, 65, 0.2)', textAlign: 'center' }}>
+                       {p.traffic?.is_active ? (
+                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-start' }}>
+                           <div className="animate-pulse" style={{ width: '6px', height: '6px', background: '#00FF41', boxShadow: '0 0 5px #00FF41' }} />
+                           <span style={{ fontSize: '0.6rem', color: '#00FF41', fontWeight: 'bold' }}>ACTIVE</span>
+                         </div>
+                       ) : (
+                         <span style={{ fontSize: '0.6rem', color: 'rgba(0, 255, 65, 0.4)' }}>DORMANT</span>
+                       )}
+                    </td>
+                    <td style={{ padding: '8px', borderRight: '1px solid rgba(0, 255, 65, 0.2)', color: '#00FF41', fontWeight: 600 }}>
+                      <div className="flex flex-col">
+                        <span>{p.process?.name || (p.pid === 0 ? "KERNEL" : "UNKNOWN")}</span>
+                        {p.project && (
+                          <span style={{ fontSize: '0.6rem', color: 'rgba(0, 255, 65, 0.5)', fontStyle: 'italic' }}>
+                            @{p.project.name}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px', borderRight: '1px solid rgba(0, 255, 65, 0.2)', maxWidth: '300px' }}>
+                      <div className="flex flex-col gap-1">
+                        <div style={{ 
+                          fontSize: '0.7rem', 
+                          color: 'rgba(0, 255, 65, 0.6)', 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'nowrap' 
+                        }} title={p.process?.cmdline || p.insight?.explanation}>
+                          {p.process?.cmdline || p.insight?.explanation || '-'}
+                        </div>
+                        {p.risks && p.risks.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {p.risks.map(r => <RiskBadge key={r} risk={r} />)}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td style={{ padding: '8px', borderRight: '1px solid rgba(0, 255, 65, 0.2)', textAlign: 'center', color: 'rgba(0, 255, 65, 0.7)' }}>
+                      {memStr}
+                    </td>
+                    <td style={{ padding: '8px', textAlign: 'right' }}>
+                      <button
+                        className="terminal-btn"
+                        style={{ padding: "4px 8px", fontSize: "0.65rem", cursor: isKilling === p.pid ? 'not-allowed' : 'pointer' }}
+                        disabled={isKilling === p.pid}
+                        onClick={() => onSimulateKill(p.pid)}
+                      >
+                        {isKilling === p.pid ? "TERM..." : "KILL"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ color: '#00FF41', fontFamily: 'monospace', marginTop: '8px', fontSize: '0.7rem', flexShrink: 0 }}>
+        +------------------------------------------------------------------------------------------------------------------+
+      </div>
     </div>
   );
 };
 
 export const PortMonitor: React.FC<PortMonitorProps> = ({
   ports,
-  processes,
   onSimulateKill,
   killState,
 }) => {
-  const [expandedKey, setExpandedKey] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<DetailTab>("telemetry");
-
-  const sortedPorts = [...ports].sort((a, b) => {
-    if (a.insight?.is_forgotten !== b.insight?.is_forgotten) {
-      return a.insight?.is_forgotten ? -1 : 1;
-    }
-    if (a.orphaned !== b.orphaned) return a.orphaned ? -1 : 1;
-    return new Date(b.first_seen).getTime() - new Date(a.first_seen).getTime();
-  });
-
-  const getProcessTree = (pid: number) => {
-    const tree: number[] = [];
-    const findChildren = (parent: number) => {
-      Object.values(processes).forEach((p) => {
-        if (p.ppid === parent) {
-          tree.push(p.pid);
-          findChildren(p.pid);
-        }
-      });
-    };
-    findChildren(pid);
-    return tree;
-  };
+  const sortedPorts = [...ports].sort((a, b) => a.port - b.port);
+  
+  // Enforce rigorous Dev Port definition via category
+  const devPorts = sortedPorts.filter(p => p.insight?.category === "dev");
+  const systemPorts = sortedPorts.filter(p => p.insight?.category === "system" || p.insight?.category === "unidentified");
 
   const isKilling = killState.status === "terminating" ? killState.pid : null;
 
+  // Opinionated Automation: Workspace Sweeper
+  const handleKillProject = async (projectName: string) => {
+    const projectPorts = ports.filter(p => p.project?.name === projectName && p.pid > 0);
+    // Kill them one by one (simplified for now)
+    for (const p of projectPorts) {
+      await onSimulateKill(p.pid);
+    }
+  };
+
   return (
-    <div className="view-fade-in" style={{ width: '100%', maxWidth: '100%' }}>
+    <div className="view-fade-in flex flex-col max-h-full overflow-hidden" style={{ width: '100%', maxWidth: '100%' }}>
       <div style={{ 
         marginBottom: '24px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '16px'
+        flexWrap: 'nowrap',
+        gap: '16px',
+        borderBottom: '2px solid #00FF41',
+        paddingBottom: '12px',
+        flexShrink: 0
       }}>
-        <h1 style={{ margin: 0, fontSize: '1.875rem', fontWeight: 700 }}>
-          Port Monitor
+        <h1 className="text-terminal-green uppercase tracking-widest font-bold m-0" style={{ fontSize: '1.5rem' }}>
+          &gt; PORTWATCH_MONITOR.LOG
         </h1>
         <div style={{ 
           fontSize: '0.875rem', 
-          color: 'var(--muted-foreground)',
+          color: '#00FF41',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px'
+          gap: '16px',
+          fontFamily: 'monospace'
         }}>
-          <span>{sortedPorts.length} active {sortedPorts.length === 1 ? 'port' : 'ports'}</span>
+          <span>DEV_SERVICES: {devPorts.length}</span>
+          <span>SYSTEM_PROC: {systemPorts.length}</span>
         </div>
       </div>
 
-      <div 
-        className="card" 
-        style={{ 
-          padding: 0, 
-          overflow: 'hidden', 
-          border: '1px solid var(--border)',
-          borderRadius: '8px',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)'
-        }}
-      >
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '800px' }}>
-            <thead>
-              <tr style={{ 
-                background: 'var(--muted)',
-                borderBottom: '2px solid var(--border)'
-              }}>
-                <th style={{ 
-                  width: '60px', 
-                  textAlign: 'center',
-                  padding: '12px 16px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--muted-foreground)'
-                }}>
-                  Age
-                </th>
-                <th style={{ 
-                  padding: '12px 16px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--muted-foreground)',
-                  textAlign: 'left'
-                }}>
-                  Port
-                </th>
-                <th style={{ 
-                  padding: '12px 16px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--muted-foreground)',
-                  textAlign: 'left'
-                }}>
-                  Process / Service
-                </th>
-                <th style={{ 
-                  padding: '12px 16px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--muted-foreground)',
-                  textAlign: 'left'
-                }}>
-                  Status
-                </th>
-                <th style={{ 
-                  padding: '12px 16px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--muted-foreground)',
-                  textAlign: 'right',
-                  width: '120px'
-                }}>
-                  Action
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedPorts.length === 0 ? (
-                <tr>
-                  <td 
-                    colSpan={5} 
-                    style={{ 
-                      padding: '48px 24px',
-                      textAlign: 'center',
-                      color: 'var(--muted-foreground)',
-                      fontSize: '0.875rem'
-                    }}
-                  >
-                    No active ports detected
-                  </td>
-                </tr>
-              ) : (
-                sortedPorts.map((p) => {
-                  const key = `${p.port}-${p.pid}`;
-                  const isExpanded = expandedKey === key;
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {devPorts.length > 0 && (
+          <PortTable 
+            title="ACTIVE DEVELOPMENT_SERVICES" 
+            ports={devPorts} 
+            onSimulateKill={onSimulateKill}
+            onKillProject={handleKillProject}
+            isKilling={isKilling}
+            emptyMessage="NO_DEV_SERVICES_DETECTED"
+          />
+        )}
 
-                  return (
-                    <React.Fragment key={key}>
-                      <tr
-                        className={`port-row ${isExpanded ? "expanded" : ""} ${
-                          p.insight?.is_forgotten ? "forgotten-row" : ""
-                        }`}
-                        onClick={() => setExpandedKey(isExpanded ? null : key)}
-                        style={{ 
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease',
-                          borderBottom: '1px solid var(--border)',
-                          background: isExpanded ? 'var(--muted)' : 'transparent'
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!isExpanded) {
-                            e.currentTarget.style.background = 'var(--muted)';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!isExpanded) {
-                            e.currentTarget.style.background = 'transparent';
-                          }
-                        }}
-                      >
-                        <td style={{ 
-                          textAlign: 'center',
-                          padding: '16px',
-                          verticalAlign: 'middle'
-                        }}>
-                          <AgeIndicator
-                            category={p.insight?.age_category}
-                            duration={p.insight?.age_duration}
-                          />
-                        </td>
-                        <td style={{ 
-                          padding: '16px',
-                          verticalAlign: 'middle'
-                        }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <code
-                                style={{ 
-                                  fontWeight: 700, 
-                                  color: "var(--primary)",
-                                  background: 'var(--secondary)',
-                                  padding: '4px 8px',
-                                  borderRadius: '6px',
-                                  fontSize: '0.9rem',
-                                  fontFamily: 'monospace'
-                                }}
-                              >
-                                :{p.port}
-                              </code>
-                              <span 
-                                className={`badge ${
-                                  p.interface === 'public' || p.interface === 'any' 
-                                    ? 'badge-warning' 
-                                    : 'badge-success'
-                                }`}
-                                style={{ 
-                                  fontSize: '0.65rem', 
-                                  padding: '3px 8px',
-                                  fontWeight: 600,
-                                  borderRadius: '4px'
-                                }}
-                              >
-                                {p.interface.toUpperCase()}
-                              </span>
-                            </div>
-                            <div style={{ 
-                              fontSize: '0.7rem', 
-                              color: 'var(--muted-foreground)', 
-                              fontFamily: 'monospace',
-                              letterSpacing: '-0.02em'
-                            }}>
-                              {p.local_addr}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ 
-                          padding: '16px',
-                          verticalAlign: 'middle',
-                          maxWidth: '350px'
-                        }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <ResourceIcon type="system" size={16} />
-                              <div style={{ 
-                                fontWeight: 600, 
-                                fontSize: '0.875rem', 
-                                color: 'var(--foreground)',
-                                lineHeight: 1.4
-                              }}>
-                                {p.process?.name || (p.pid === 0 ? "System/Container" : "Unknown Process")}
-                              </div>
-                            </div>
-                            <div
-                              className="text-muted"
-                              style={{ 
-                                fontSize: '0.7rem', 
-                                fontWeight: 500,
-                                fontFamily: 'monospace',
-                                background: 'var(--secondary)',
-                                padding: '4px 8px',
-                                borderRadius: '4px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                                color: 'var(--muted-foreground)',
-                                lineHeight: 1.5
-                              }}
-                              title={p.process?.cmdline || p.insight?.explanation}
-                            >
-                              {p.process?.cmdline || p.insight?.explanation || (p.pid === 0 ? "External or System Service" : `PID: ${p.pid}`)}
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ 
-                          padding: '16px',
-                          verticalAlign: 'middle'
-                        }}>
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {p.insight?.is_forgotten && (
-                              <span 
-                                className="badge badge-warning"
-                                style={{ 
-                                  fontSize: '0.7rem',
-                                  padding: '4px 10px',
-                                  fontWeight: 600,
-                                  borderRadius: '4px'
-                                }}
-                              >
-                                Forgotten
-                              </span>
-                            )}
-                            {p.orphaned && (
-                              <span 
-                                className="badge badge-danger"
-                                style={{ 
-                                  fontSize: '0.7rem',
-                                  padding: '4px 10px',
-                                  fontWeight: 600,
-                                  borderRadius: '4px'
-                                }}
-                              >
-                                Orphaned
-                              </span>
-                            )}
-                            {!p.orphaned && !p.insight?.is_forgotten && (
-                              <span 
-                                className="badge badge-success"
-                                style={{ 
-                                  fontSize: '0.7rem',
-                                  padding: '4px 10px',
-                                  fontWeight: 600,
-                                  borderRadius: '4px'
-                                }}
-                              >
-                                Healthy
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td 
-                          onClick={(e) => e.stopPropagation()} 
-                          style={{ 
-                            textAlign: 'right',
-                            padding: '16px',
-                            verticalAlign: 'middle'
-                          }}
-                        >
-                          <button
-                            className="btn btn-secondary"
-                            style={{ 
-                              padding: "8px 16px", 
-                              fontSize: "0.75rem", 
-                              fontWeight: 600,
-                              borderRadius: '6px',
-                              transition: 'all 0.2s ease',
-                              cursor: isKilling === p.pid ? 'not-allowed' : 'pointer',
-                              opacity: isKilling === p.pid ? 0.6 : 1
-                            }}
-                            disabled={isKilling === p.pid}
-                            onClick={() => onSimulateKill(p.pid)}
-                          >
-                            {isKilling === p.pid ? "Terminating..." : "Terminate"}
-                          </button>
-                        </td>
-                      </tr>
+        {systemPorts.length > 0 && (
+          <PortTable 
+            title="OTHER_PROCESSES & SYSTEM_SERVICES" 
+            ports={systemPorts} 
+            onSimulateKill={onSimulateKill} 
+            isKilling={isKilling}
+            emptyMessage="NO_OTHER_PROCESSES_RECORDED"
+          />
+        )}
 
-                      {isExpanded && (
-                        <tr className="detail-row">
-                          <td 
-                            colSpan={5} 
-                            style={{ 
-                              padding: '0', 
-                              background: 'var(--muted)',
-                              borderBottom: '1px solid var(--border)'
-                            }}
-                          >
-                            <TelemetryDrawer
-                              port={p}
-                              processes={processes}
-                              activeTab={activeTab}
-                              setActiveTab={setActiveTab}
-                              getProcessTree={getProcessTree}
-                            />
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+        {devPorts.length === 0 && systemPorts.length === 0 && (
+          <div className="terminal-card" style={{ padding: '48px', textAlign: 'center', color: '#00FF41', border: '2px solid #00FF41' }}>
+            [ NO_ACTIVE_PROCESSES_DETECTED ]
+          </div>
+        )}
       </div>
     </div>
   );

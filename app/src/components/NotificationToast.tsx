@@ -15,35 +15,40 @@ export const NotificationToast: React.FC = () => {
       display: 'flex',
       flexDirection: 'column',
       gap: '8px',
-      maxWidth: '320px'
+      maxWidth: '360px',
+      fontFamily: 'monospace'
     }}>
       {notifications.map((n) => (
         <div 
           key={n.id} 
-          className="view-fade-in card"
+          className="view-fade-in"
           style={{
             padding: '12px 16px',
-            borderLeft: `4px solid var(--${n.type})`,
+            border: `2px solid ${n.type === 'destructive' ? '#FF0000' : n.type === 'warning' ? '#FFB000' : '#00FF41'}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-            background: 'var(--card)',
-            color: 'var(--card-foreground)'
+            background: '#050505',
+            color: n.type === 'destructive' ? '#FF0000' : n.type === 'warning' ? '#FFB000' : '#00FF41',
+            boxShadow: `0 0 15px ${n.type === 'destructive' ? 'rgba(255,0,0,0.2)' : n.type === 'warning' ? 'rgba(255,176,0,0.2)' : 'rgba(0,255,65,0.2)'}`
           }}
         >
-          <div style={{ fontSize: '0.875rem' }}>{n.message}</div>
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>
+            [{n.type === 'destructive' ? 'ERR' : n.type === 'warning' ? 'WARN' : 'INFO'}] {n.message}
+          </div>
           <button 
             onClick={() => removeNotification(n.id)}
             style={{ 
               background: 'none', 
               border: 'none', 
-              color: 'var(--muted-foreground)',
+              color: 'inherit',
               cursor: 'pointer',
-              padding: '4px'
+              padding: '4px',
+              marginLeft: '12px',
+              fontSize: '1rem'
             }}
           >
-            ✕
+            ×
           </button>
         </div>
       ))}

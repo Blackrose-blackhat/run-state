@@ -69,15 +69,15 @@ export const ResourceIcon: React.FC<ResourceIconProps> = ({
   };
 
   const colors: Record<string, string> = {
-    docker: "#0db7ed",
-    database: "#4479a1",
-    node: "#68a063",
-    python: "#3776ab",
-    go: "#00add8",
-    rust: "#dea584",
-    k8s: "#326ce5",
-    terminal: "var(--primary)",
-    system: "var(--muted-foreground)"
+    docker: "#00FF41",
+    database: "#00FF41",
+    node: "#00FF41",
+    python: "#00FF41",
+    go: "#00FF41",
+    rust: "#00FF41",
+    k8s: "#00FF41",
+    terminal: "#00FF41",
+    system: "rgba(0, 255, 65, 0.5)"
   };
 
   return (

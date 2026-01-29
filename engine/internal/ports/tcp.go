@@ -2,6 +2,7 @@ package ports
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -12,6 +13,8 @@ type TcpPort struct {
 	LocalAddr string
 	Inode     string
 	State     string
+	TxQueue   int64
+	RxQueue   int64
 }
 
 func hexToIP(hexStr string) string {
@@ -65,6 +68,44 @@ func parseIPv4(hexStr string) string {
 		strconv.FormatUint((d>>24)&0xFF, 10)
 }
 
+// parseIPv6 handles 32-character hex strings from /proc/net/tcp6
+func parseIPv6(hexStr string) string {
+	if len(hexStr) != 32 {
+		return hexStr
+	}
+	// IPv6 is 16 bytes, stored as four 32-bit little-endian words
+	var ip []string
+	for i := 0; i < 4; i++ {
+		word, _ := strconv.ParseUint(hexStr[i*8:(i+1)*8], 16, 32)
+		// Each word is 4 bytes, let's just use net.IP feel
+		// But here we want a string representation.
+		// Actually, simpler to just hex-group it if we wanted,
+		// but let's follow the standard: 4 bytes at a time, each word is little-endian.
+		b0 := byte(word & 0xFF)
+		b1 := byte((word >> 8) & 0xFF)
+		b2 := byte((word >> 16) & 0xFF)
+		b3 := byte((word >> 24) & 0xFF)
+		ip = append(ip, fmt.Sprintf("%02x%02x:%02x%02x", b3, b2, b1, b0))
+	}
+	// This isn't exactly right for standard IPv6 string but we need it for net.ParseIP later
+	// net.ParseIP handles standard IPv6.
+	// Actually, easier: 4 groups of 4 bytes, each group is reversed.
+	res := ""
+	for i := 0; i < 16; i += 4 {
+		h := hexStr[i*2 : (i+4)*2]
+		// Reverse bytes in this 4-byte chunk
+		res += h[6:8] + h[4:6] + h[2:4] + h[0:2]
+	}
+	// Return as hex, snapshot.go's getInterface/net.ParseIP will handle it if we format it right.
+	// Or better: just return the bytes and let snapshot handle it?
+	// No, let's return a string that net.ParseIP likes.
+	return fmt.Sprintf("%s:%s:%s:%s:%s:%s:%s:%s",
+		hexStr[6:8]+hexStr[4:6], hexStr[2:4]+hexStr[0:2],
+		hexStr[14:16]+hexStr[12:14], hexStr[10:12]+hexStr[8:10],
+		hexStr[22:24]+hexStr[20:22], hexStr[18:20]+hexStr[16:18],
+		hexStr[30:32]+hexStr[28:30], hexStr[26:28]+hexStr[24:26])
+}
+
 func ListTCPPorts() ([]TcpPort, error) {
 	var out []TcpPort
 
@@ -105,11 +146,30 @@ func ListTCPPorts() ([]TcpPort, error) {
 				continue
 			}
 
+			addr := ""
+			if len(addrHex) == 8 {
+				addr = parseIPv4(addrHex)
+			} else if len(addrHex) == 32 {
+				addr = parseIPv6(addrHex)
+			} else {
+				addr = addrHex
+			}
+
+			// Parse queues (index 4 is tx_queue:rx_queue)
+			var tx, rx int64
+			queues := strings.Split(fields[4], ":")
+			if len(queues) == 2 {
+				tx, _ = strconv.ParseInt(queues[0], 16, 64)
+				rx, _ = strconv.ParseInt(queues[1], 16, 64)
+			}
+
 			out = append(out, TcpPort{
 				Port:      int(p),
-				LocalAddr: parseIPv4(addrHex),
+				LocalAddr: addr,
 				Inode:     inode,
 				State:     state,
+				TxQueue:   tx,
+				RxQueue:   rx,
 			})
 		}
 		f.Close()

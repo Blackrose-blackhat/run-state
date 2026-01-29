@@ -7,14 +7,24 @@ import (
 	"time"
 )
 
+// ServiceCategory defines the rigorous classification of a port
+type ServiceCategory string
+
+const (
+	CategoryDev          ServiceCategory = "dev"
+	CategorySystem       ServiceCategory = "system"
+	CategoryUnidentified ServiceCategory = "unidentified"
+)
+
 // PortInsight contains explanation and status information for a port
 type PortInsight struct {
-	Explanation      string   `json:"explanation"`
-	Icon             string   `json:"icon"`         // "docker", "node", "database", etc.
-	AgeCategory      string   `json:"age_category"` // "fresh", "lingering", "forgotten"
-	AgeDuration      string   `json:"age_duration"`
-	IsForgotten      bool     `json:"is_forgotten"`
-	ForgottenReasons []string `json:"forgotten_reasons,omitempty"`
+	Explanation      string          `json:"explanation"`
+	Icon             string          `json:"icon"` // "docker", "node", "database", etc.
+	Category         ServiceCategory `json:"category"`
+	AgeCategory      string          `json:"age_category"` // "fresh", "lingering", "forgotten"
+	AgeDuration      string          `json:"age_duration"`
+	IsForgotten      bool            `json:"is_forgotten"`
+	ForgottenReasons []string        `json:"forgotten_reasons,omitempty"`
 }
 
 // DevToolPatterns maps command patterns to human-readable explanations and icons
@@ -90,6 +100,7 @@ var DevToolPatterns = []struct {
 	{regexp.MustCompile(`(?i)kube-proxy`), "Kubernetes Proxy", "k8s"},
 	{regexp.MustCompile(`(?i)minikube`), "Minikube Cluster", "k8s"},
 	{regexp.MustCompile(`(?i)kubectl`), "Kubernetes CLI", "k8s"},
+	{regexp.MustCompile(`(?i)containerd-shim`), "Container Runtime (Shim)", "docker"},
 	{regexp.MustCompile(`(?i)helm\s`), "Helm (K8s)", "k8s"},
 
 	// Message Brokers
@@ -136,44 +147,46 @@ var TerminalPatterns = []string{
 	"wezterm", "iterm", "hyper", "tmux", "screen",
 }
 
-// ExplainProcess generates a human-readable explanation and icon for a process
-func ExplainProcess(cmdline string, name string) (string, string) {
+// ExplainProcess generates a human-readable explanation, icon and category for a process
+func ExplainProcess(cmdline string, name string) (string, string, ServiceCategory) {
 	if cmdline == "" && name == "" {
-		return "System or Container Service", "docker"
+		return "System or Container Service", "docker", CategoryDev
 	}
 
 	// Try cmdline first (more specific)
 	for _, pattern := range DevToolPatterns {
 		if pattern.Pattern.MatchString(cmdline) {
-			return pattern.Explanation, pattern.Icon
+			return pattern.Explanation, pattern.Icon, CategoryDev
 		}
 	}
 
 	// Fallback to process name
 	for _, pattern := range DevToolPatterns {
 		if pattern.Pattern.MatchString(name) {
-			return pattern.Explanation, pattern.Icon
+			return pattern.Explanation, pattern.Icon, CategoryDev
 		}
 	}
 
 	// Terminal check
 	for _, term := range TerminalPatterns {
 		if strings.Contains(strings.ToLower(cmdline), term) || strings.Contains(strings.ToLower(name), term) {
-			return "Terminal Session", "terminal"
+			return "Terminal Session", "terminal", CategoryDev
 		}
 	}
 
 	// Generic fallback
 	if name != "" {
-		return "Started by " + name, "system"
+		// Heuristic: if it's a known non-dev system process name, label as system
+		// For now, if not in DevToolPatterns, it's system
+		return "Started by " + name, "system", CategorySystem
 	}
-	return "System Service", "system"
+	return "System Service", "system", CategorySystem
 }
 
 // IsDevProcess checks if a process matches any developer tool patterns
 func IsDevProcess(cmdline string, name string) bool {
-	_, icon := ExplainProcess(cmdline, name)
-	return icon != "system"
+	_, _, category := ExplainProcess(cmdline, name)
+	return category == CategoryDev
 }
 
 // IsNoiseProcess returns true if a process is likely irrelevant to the user
@@ -261,16 +274,56 @@ func formatDuration(d time.Duration) string {
 	}
 }
 
+// KnownPorts maps common development ports to their service description and icon
+var KnownPorts = map[int]struct {
+	Explanation string
+	Icon        string
+}{
+	// Databases
+	5432:  {"PostgreSQL Database", "database"},
+	3306:  {"MySQL Database", "database"},
+	6379:  {"Redis Server", "database"},
+	27017: {"MongoDB Server", "database"},
+	11211: {"Memcached Server", "database"},
+	8000:  {"DynamoDB Local", "database"}, // Common alias
+	9042:  {"Cassandra", "database"},
+	9200:  {"Elasticsearch", "database"},
+
+	// Message Brokers
+	5672:  {"RabbitMQ", "message-broker"},
+	15672: {"RabbitMQ Management", "message-broker"},
+	9092:  {"Kafka", "message-broker"},
+	4222:  {"NATS", "message-broker"},
+
+	// Common Dev Ports (generic)
+	3000: {"Web Dev Server", "node"},
+	3001: {"Web Dev Server", "node"},
+	4200: {"Angular Dev Server", "node"},
+	5000: {"Python/Flask Server", "python"},
+	5173: {"Vite Dev Server", "node"},
+	8080: {"HTTP Server", "system"}, // Generic, could be anything
+	8008: {"HTTP Server", "system"},
+}
+
+// GenerateInsightFromPort attempts to identify a service based on its port number
+func GenerateInsightFromPort(port int) (string, string, bool) {
+	if info, ok := KnownPorts[port]; ok {
+		return info.Explanation, info.Icon, true
+	}
+	return "Unknown Service", "system", false
+}
+
 // GenerateInsight creates a complete PortInsight for a port
 func GenerateInsight(firstSeen time.Time, cmdline string, processName string, forgottenThreshold time.Duration) *PortInsight {
-	category, duration := CategorizeAge(firstSeen)
-	explanation, icon := ExplainProcess(cmdline, processName)
+	categoryAge, duration := CategorizeAge(firstSeen)
+	explanation, icon, category := ExplainProcess(cmdline, processName)
 	isForgotten, reasons := IsForgottenPort(firstSeen, cmdline, processName, forgottenThreshold)
 
 	return &PortInsight{
 		Explanation:      explanation,
 		Icon:             icon,
-		AgeCategory:      category,
+		Category:         category,
+		AgeCategory:      categoryAge,
 		AgeDuration:      duration,
 		IsForgotten:      isForgotten,
 		ForgottenReasons: reasons,

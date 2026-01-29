@@ -6,7 +6,7 @@ import { useNotifications } from "../lib/notifications";
 export function useEngine() {
   const [status, setStatus] = useState<EngineStatus>("starting");
   const [enginePort, setEnginePort] = useState<number | null>(null);
-  const [processes, setProcesses] = useState<Record<number, ProcInfo>>({});
+
   const [ports, setPorts] = useState<PortSnapshot[]>([]);
   const [killState, setKillState] = useState<KillState>({ status: "idle" });
   const { addNotification } = useNotifications();
@@ -24,13 +24,9 @@ export function useEngine() {
         return;
       }
 
-      const [procsRes, portsRes] = await Promise.all([
-        fetch(`http://127.0.0.1:${port}/processes`),
-        fetch(`http://127.0.0.1:${port}/ports`),
-      ]);
+      const portsRes = await fetch(`http://127.0.0.1:${port}/ports`);
 
-      if (procsRes.ok && portsRes.ok) {
-        setProcesses(await procsRes.json());
+      if (portsRes.ok) {
         setPorts(await portsRes.json());
         setStatus("ready");
       } else {
@@ -126,7 +122,7 @@ export function useEngine() {
   return {
     status,
     enginePort,
-    processes,
+
     ports,
     killState,
     simulateKill,

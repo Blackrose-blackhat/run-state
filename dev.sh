@@ -2,13 +2,13 @@
 set -e
 
 echo "▶ killing existing engine processes"
-pkill -f runstate-engine || true
+pkill -f portwatch-engine || true
 
 echo "▶ building go engine"
 
 ENGINE_DIR="$(pwd)/engine"
 TAURI_BIN_DIR="$(pwd)/app/src-tauri/bin"
-ENGINE_OUT="$TAURI_BIN_DIR/runstate-engine"
+ENGINE_OUT="$TAURI_BIN_DIR/portwatch-engine"
 
 mkdir -p "$TAURI_BIN_DIR"
 
