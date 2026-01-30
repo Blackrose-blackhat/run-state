@@ -8,7 +8,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "./ui/dialog";
-import { Button } from "./ui/button";
+
 import { ShieldAlert, AlertTriangle, Activity, Loader2 } from "lucide-react";
 
 interface KillConfirmModalProps {

@@ -24,17 +24,17 @@ export const NotificationToast: React.FC = () => {
           className="view-fade-in"
           style={{
             padding: '12px 16px',
-            border: `2px solid ${n.type === 'destructive' ? '#FF0000' : n.type === 'warning' ? '#FFB000' : '#00FF41'}`,
+            border: `2px solid ${n.type === 'error' ? '#FF0000' : n.type === 'warning' ? '#FFB000' : n.type === 'success' ? '#00FF41' : '#00BFFF'}`,
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
             background: '#050505',
-            color: n.type === 'destructive' ? '#FF0000' : n.type === 'warning' ? '#FFB000' : '#00FF41',
-            boxShadow: `0 0 15px ${n.type === 'destructive' ? 'rgba(255,0,0,0.2)' : n.type === 'warning' ? 'rgba(255,176,0,0.2)' : 'rgba(0,255,65,0.2)'}`
+            color: n.type === 'error' ? '#FF0000' : n.type === 'warning' ? '#FFB000' : n.type === 'success' ? '#00FF41' : '#00BFFF',
+            boxShadow: `0 0 15px ${n.type === 'error' ? 'rgba(255,0,0,0.2)' : n.type === 'warning' ? 'rgba(255,176,0,0.2)' : n.type === 'success' ? 'rgba(0,255,65,0.2)' : 'rgba(0,191,255,0.2)'}`
           }}
         >
           <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase' }}>
-            [{n.type === 'destructive' ? 'ERR' : n.type === 'warning' ? 'WARN' : 'INFO'}] {n.message}
+            [{n.type === 'error' ? 'ERR' : n.type === 'warning' ? 'WARN' : n.type === 'success' ? 'OK' : 'INFO'}] {n.message}
           </div>
           <button 
             onClick={() => removeNotification(n.id)}

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { EngineStatus, ProcInfo, PortSnapshot, KillSimulation, KillResult, KillState } from "../types";
+import { EngineStatus, PortSnapshot, KillSimulation, KillResult, KillState } from "../types";
 import { useNotifications } from "../lib/notifications";
 
 export function useEngine() {

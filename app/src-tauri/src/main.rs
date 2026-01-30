@@ -48,7 +48,7 @@ fn main() {
         .setup(|app| {
             let engine_path = app
                 .path()
-                .resolve("bin/runstate-engine", tauri::path::BaseDirectory::Resource)
+                .resolve("bin/portwatch-engine", tauri::path::BaseDirectory::Resource)
                 .expect("engine binary not found");
 
             let mut child = Command::new(engine_path)

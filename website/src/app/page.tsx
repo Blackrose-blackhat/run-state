@@ -27,6 +27,8 @@ import {
 import { FlickeringGrid } from "@/components/ui/flickering-grid";
 import Link from "next/link";
 import { useRef, useEffect, useState } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { LINKS } from "@/constants/links";
 
 // Typing effect component
 function TypingText({ text, delay = 0 }: { text: string; delay?: number }) {
@@ -151,10 +153,8 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1 }}
             >
-              <span data-text="PORT">
-                PORT
-              </span>
-              <span className="text-primary neon-glow-strong">{" "}WATCH</span>
+              <span data-text="PORT">PORT</span>
+              <span className="text-primary neon-glow-strong"> WATCH</span>
             </motion.h1>
 
             <motion.div
@@ -178,7 +178,6 @@ export default function LandingPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    
                     size="lg"
                     className="h-16 px-12 text-xl bg-neon-glow font-black  text-black transition-all hover:scale-105 gap-3 rounded-none cyber-border border-0 shadow-[0_0_20px_rgba(0,255,136,0.3)]"
                   >
@@ -191,10 +190,7 @@ export default function LandingPage() {
                     asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-3"
                   >
-                    <Link
-                      href="https://github.com/Blackrose-blackhat/port-watch/releases/download/AppImage/app_0.1.0_amd64.AppImage"
-                      className="w-full"
-                    >
+                    <Link href={LINKS.DOWNLOADS.APPIMAGE} className="w-full">
                       AppImage (.AppImage)
                     </Link>
                   </DropdownMenuItem>
@@ -202,10 +198,7 @@ export default function LandingPage() {
                     asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-3"
                   >
-                    <Link
-                      href="https://github.com/Blackrose-blackhat/port-watch/releases/latest"
-                      className="w-full"
-                    >
+                    <Link href={LINKS.DOWNLOADS.DEBIAN} className="w-full">
                       Debian (.deb)
                     </Link>
                   </DropdownMenuItem>
@@ -213,10 +206,7 @@ export default function LandingPage() {
                     asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-3"
                   >
-                    <Link
-                      href="https://github.com/Blackrose-blackhat/port-watch/releases/latest"
-                      className="w-full"
-                    >
+                    <Link href={LINKS.DOWNLOADS.RPM} className="w-full">
                       RPM (.rpm)
                     </Link>
                   </DropdownMenuItem>
@@ -232,16 +222,12 @@ export default function LandingPage() {
                     asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer py-3"
                   >
-                    <Link
-                      href="https://github.com/Blackrose-blackhat/port-watch/releases"
-                      className="w-full"
-                    >
+                    <Link href={LINKS.RELEASES} className="w-full">
                       Other Releases
                     </Link>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-             
             </motion.div>
           </div>
         </motion.div>
@@ -657,7 +643,8 @@ export default function LandingPage() {
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-4"
                   >
                     <Link
-                      href="https://github.com/Blackrose-blackhat/port-watch/releases/download/AppImage/app_0.1.0_amd64.AppImage"
+                      download
+                      href={LINKS.DOWNLOADS.APPIMAGE}
                       className="w-full text-center"
                     >
                       AppImage (.AppImage)
@@ -668,7 +655,8 @@ export default function LandingPage() {
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-4"
                   >
                     <Link
-                      href="https://github.com/Blackrose-blackhat/port-watch/releases/latest"
+                      download
+                      href={LINKS.DOWNLOADS.DEBIAN}
                       className="w-full text-center"
                     >
                       Debian (.deb)
@@ -679,7 +667,8 @@ export default function LandingPage() {
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-4"
                   >
                     <Link
-                      href="https://github.com/Blackrose-blackhat/port-watch/releases/latest"
+                      download
+                      href={LINKS.DOWNLOADS.RPM}
                       className="w-full text-center"
                     >
                       RPM (.rpm)
@@ -689,10 +678,7 @@ export default function LandingPage() {
                     asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer py-4"
                   >
-                    <Link
-                      href="https://github.com/Blackrose-blackhat/port-watch/releases"
-                      className="w-full text-center"
-                    >
+                    <Link href={LINKS.RELEASES} className="w-full text-center">
                       Other Releases
                     </Link>
                   </DropdownMenuItem>
@@ -703,6 +689,60 @@ export default function LandingPage() {
               </p>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* Direct Download via Curl Section - Redesigned as Card with Tabs */}
+      <section className="py-16 bg-black border-t border-primary/20 flex justify-center">
+        <div className="w-full max-w-2xl mx-auto">
+          <div className="mb-8 text-center">
+            <h3 className="text-3xl md:text-4xl font-black mb-2 tracking-tighter uppercase text-primary">
+              Direct Download
+            </h3>
+            <p className="text-muted-foreground font-mono text-lg">
+              Choose your format and copy the curl command below:
+            </p>
+          </div>
+          <Tabs
+            defaultValue="deb"
+            className="bg-neutral-900 border border-primary/20 rounded-xl p-6"
+          >
+            <TabsList className="mb-6 flex justify-center gap-2">
+              <TabsTrigger value="deb">Debian (.deb)</TabsTrigger>
+              <TabsTrigger value="appimage">AppImage</TabsTrigger>
+              <TabsTrigger value="rpm">RPM (.rpm)</TabsTrigger>
+            </TabsList>
+            <TabsContent value="deb">
+              <div className="text-left">
+                <span className="block text-primary font-bold mb-2">
+                  Debian (.deb)
+                </span>
+                <code className="block font-mono text-base bg-black/60 p-3 rounded select-all">
+                  {LINKS.CURL.DEBIAN}
+                </code>
+              </div>
+            </TabsContent>
+            <TabsContent value="appimage">
+              <div className="text-left">
+                <span className="block text-primary font-bold mb-2">
+                  AppImage
+                </span>
+                <code className="block font-mono text-base bg-black/60 p-3 rounded select-all">
+                  {LINKS.CURL.APPIMAGE}
+                </code>
+              </div>
+            </TabsContent>
+            <TabsContent value="rpm">
+              <div className="text-left">
+                <span className="block text-primary font-bold mb-2">
+                  RPM (.rpm)
+                </span>
+                <code className="block font-mono text-base bg-black/60 p-3 rounded select-all">
+                  {LINKS.CURL.RPM}
+                </code>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </section>
 

@@ -15,112 +15,105 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useState } from "react";
+import { LINKS } from "@/constants/links";
+import { GithubBanner } from "./github-banner";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <header className="fixed top-0 w-full z-50 border-b border-primary/20 bg-black/80 backdrop-blur-md">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link
-          href="/"
-          className="flex items-center gap-3 hover:opacity-90 transition-opacity group"
-        >
-          <div className="w-10 h-10 rounded-none bg-primary/10 border border-primary/30 flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors cyber-border">
-            <LucideTerminal size={20} />
+    <header className="fixed top-0 w-full z-50 bg-black/80 backdrop-blur-md group">
+      <GithubBanner />
+      <div className="border-b border-primary/20">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <Link
+            href="/"
+            className="flex items-center gap-3 hover:opacity-90 transition-opacity group/logo"
+          >
+            <div className="w-10 h-10 rounded-none bg-primary/10 border border-primary/30 flex items-center justify-center text-primary group-hover/logo:bg-primary/20 transition-colors cyber-border">
+              <LucideTerminal size={20} />
+            </div>
+            <span className="font-black text-xl tracking-tight text-primary uppercase neon-glow">
+              PortWatch
+            </span>
+          </Link>
+
+          <nav className="hidden md:flex items-center gap-8 text-sm font-mono uppercase tracking-widest">
+            <Link
+              href="#features"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
+              Features
+            </Link>
+            <Link
+              href="#download"
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
+              Download
+            </Link>
+            <Link
+              href={LINKS.GITHUB}
+              className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2"
+            >
+              <LucideGithub size={16} />
+              GitHub
+            </Link>
+          </nav>
+
+          <div className="flex items-center gap-4">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button className="bg-neon-glow text-black hover:bg-primary/90 font-bold uppercase tracking-wider rounded-none cyber-border border-0 gap-2 hidden sm:flex">
+                  <LucideDownload size={16} />
+                  Download
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-black border-primary/20 text-primary font-mono uppercase text-xs rounded-none ">
+                <DropdownMenuItem
+                  asChild
+                  className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
+                >
+                  <Link href={LINKS.DOWNLOADS.APPIMAGE} className="w-full">
+                    AppImage (.AppImage)
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  asChild
+                  className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
+                >
+                  <Link href={LINKS.DOWNLOADS.DEBIAN} className="w-full">
+                    Debian (.deb)
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  asChild
+                  className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
+                >
+                  <Link href={LINKS.DOWNLOADS.RPM} className="w-full">
+                    RPM (.rpm)
+                  </Link>
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  asChild
+                  className="focus:bg-primary/20 focus:text-primary cursor-pointer"
+                >
+                  <Link href={LINKS.RELEASES} className="w-full">
+                    Other Releases
+                  </Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden text-primary hover:bg-primary/10"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <LucideMenu size={24} />
+            </Button>
           </div>
-          <span className="font-black text-xl tracking-tight text-primary uppercase neon-glow">
-            PortWatch
-          </span>
-        </Link>
-
-        <nav className="hidden md:flex items-center gap-8 text-sm font-mono uppercase tracking-widest">
-          <Link
-            href="#features"
-            className="text-muted-foreground hover:text-primary transition-colors"
-          >
-            Features
-          </Link>
-          <Link
-            href="#download"
-            className="text-muted-foreground hover:text-primary transition-colors"
-          >
-            Download
-          </Link>
-          <Link
-            href="https://github.com/Blackrose-blackhat/port-watch"
-            className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2"
-          >
-            <LucideGithub size={16} />
-            GitHub
-          </Link>
-        </nav>
-
-        <div className="flex items-center gap-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button className="bg-neon-glow text-black hover:bg-primary/90 font-bold uppercase tracking-wider rounded-none cyber-border border-0 gap-2 hidden sm:flex">
-                <LucideDownload size={16} />
-                Download
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-black border-primary/20 text-primary font-mono uppercase text-xs rounded-none ">
-              <DropdownMenuItem
-                asChild
-                className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
-              >
-                <Link
-                  href="https://github.com/Blackrose-blackhat/run-state/releases/download/Download/app_0.1.0_amd64.deb"
-                  className="w-full"
-                >
-                  AppImage (.AppImage)
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                asChild
-                className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
-              >
-                <Link
-                  href="https://github.com/Blackrose-blackhat/run-state/releases/download/Download/app_0.1.0_amd64.deb"
-                  className="w-full"
-                >
-                  Debian (.deb)
-                </Link>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem
-                asChild
-                className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
-              >
-                <Link
-                  href="https://github.com/Blackrose-blackhat/run-state/releases/download/RPM/app-0.1.0-1.x86_64.rpm"
-                  className="w-full"
-                >
-                  RPM (.rpm)
-                </Link>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem
-                asChild
-                className="focus:bg-primary/20 focus:text-primary cursor-pointer"
-              >
-                <Link
-                  href="https://github.com/Blackrose-blackhat/run-state/releases"
-                  className="w-full"
-                >
-                  Other Releases
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden text-primary hover:bg-primary/10"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          >
-            <LucideMenu size={24} />
-          </Button>
         </div>
       </div>
 
@@ -141,7 +134,7 @@ export function Navbar() {
               Download
             </Link>
             <Link
-              href="https://github.com/Blackrose-blackhat/port-watch"
+              href={LINKS.GITHUB}
               className="text-muted-foreground hover:text-primary transition-colors py-2 flex items-center gap-2"
             >
               <LucideGithub size={16} />
@@ -160,7 +153,7 @@ export function Navbar() {
                   className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
                 >
                   <Link
-                    href="https://github.com/Blackrose-blackhat/port-watch/releases/download/AppImage/app_0.1.0_amd64.AppImage"
+                    href={LINKS.DOWNLOADS.APPIMAGE}
                     className="w-full py-2 px-4 block italic"
                   >
                     AppImage (.AppImage)
@@ -171,7 +164,7 @@ export function Navbar() {
                   className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
                 >
                   <Link
-                    href="https://github.com/Blackrose-blackhat/port-watch/releases/latest"
+                    href={LINKS.RELEASES_LATEST}
                     className="w-full py-2 px-4 block italic"
                   >
                     Debian (.deb)
@@ -182,7 +175,7 @@ export function Navbar() {
                   className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10"
                 >
                   <Link
-                    href="https://github.com/Blackrose-blackhat/port-watch/releases/latest"
+                    href={LINKS.RELEASES_LATEST}
                     className="w-full py-2 px-4 block italic"
                   >
                     RPM (.rpm)
@@ -193,7 +186,7 @@ export function Navbar() {
                   className="focus:bg-primary/20 focus:text-primary cursor-pointer"
                 >
                   <Link
-                    href="https://github.com/Blackrose-blackhat/port-watch/releases"
+                    href={LINKS.RELEASES}
                     className="w-full py-2 px-4 block italic"
                   >
                     Other Releases

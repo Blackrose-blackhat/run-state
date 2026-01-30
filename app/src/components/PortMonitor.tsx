@@ -1,6 +1,6 @@
 import React from "react";
 import { PortSnapshot, KillState } from "../types";
-import { ResourceIcon } from "./ResourceIcon";
+
 
 interface PortMonitorProps {
   ports: PortSnapshot[];
