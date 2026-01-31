@@ -1,0 +1,79 @@
+name: "Release"
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest]
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: setup bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: build engine
+        run: |
+          mkdir -p app/src-tauri/bin
+          cd engine
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o ../app/src-tauri/bin/portwatch-engine ./cmd/engine
+          chmod +x ../app/src-tauri/bin/portwatch-engine
+
+          # Create engine wrapper
+          WRAPPER="../app/src-tauri/bin/portwatch-engine-wrapper"
+          echo '#!/usr/bin/env bash' > "$WRAPPER"
+          echo 'exec pkexec "$(dirname "$0")/portwatch-engine" "$@"' >> "$WRAPPER"
+          chmod +x "$WRAPPER"
+
+          echo "✓ engine and wrapper ready in app/src-tauri/bin"
+
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: install dependencies (ubuntu only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            rpm \
+            libcap-dev \
+            cpio
+
+      - name: install frontend dependencies
+        run: cd app && bun install
+
+      - name: build tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: app
+          tagName: v__VERSION__
+          releaseName: "PortWatch Release v__VERSION__"
+          releaseBody: "Automated distribution build from main branch."
+          releaseDraft: false
+          prerelease: false
+          args: --verbose
