@@ -52,7 +52,9 @@ fn main() {
                 .expect("engine binary not found");
 
             println!("▶ starting engine at: {:?}", engine_path);
-
+            println!("▶ CURRENT_DIR: {:?}", std::env::current_dir());
+            println!("▶ DISPLAY: {:?}", std::env::var("DISPLAY"));
+            
             // Run the engine with elevated privileges using pkexec
             // This allows the engine to access socket info for all processes
             let mut child = Command::new("pkexec")
@@ -67,7 +69,16 @@ fn main() {
                 .expect("failed to start engine (pkexec may have been cancelled or is missing)");
 
             let stdout = child.stdout.take().expect("Failed to take stdout");
+            let stderr = child.stderr.take().expect("Failed to take stderr");
             let handle = app.handle().clone();
+
+            // Thread to read and log stderr
+            std::thread::spawn(move || {
+                let reader = std::io::BufReader::new(stderr);
+                for line in reader.lines().flatten() {
+                    eprintln!("ENGINE-STDERR: {}", line);
+                }
+            });
 
             std::thread::spawn(move || {
                 let reader = std::io::BufReader::new(stdout);
