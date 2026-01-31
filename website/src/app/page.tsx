@@ -28,7 +28,7 @@ import { FlickeringGrid } from "@/components/ui/flickering-grid";
 import Link from "next/link";
 import { useRef, useEffect, useState } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { LINKS } from "@/constants/links";
+import { LINKS, LATEST_VERSION } from "@/constants/links";
 
 // Typing effect component
 function TypingText({ text, delay = 0 }: { text: string; delay?: number }) {
@@ -108,6 +108,18 @@ export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll();
   const headerOpacity = useTransform(scrollYProgress, [0, 0.1], [1, 0.8]);
+
+  const trackDownload = async (platform: string) => {
+    try {
+      await fetch("/api/analytics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ platform, version: LATEST_VERSION }),
+      });
+    } catch (e) {
+      console.error("Failed to track download", e);
+    }
+  };
 
   return (
     <div
@@ -190,7 +202,11 @@ export default function LandingPage() {
                     asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-3"
                   >
-                    <Link href={LINKS.DOWNLOADS.APPIMAGE} className="w-full">
+                    <Link
+                      href={LINKS.DOWNLOADS.APPIMAGE}
+                      className="w-full"
+                      onClick={() => trackDownload("appimage")}
+                    >
                       AppImage (.AppImage)
                     </Link>
                   </DropdownMenuItem>
@@ -198,7 +214,11 @@ export default function LandingPage() {
                     asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-3"
                   >
-                    <Link href={LINKS.DOWNLOADS.DEBIAN} className="w-full">
+                    <Link
+                      href={LINKS.DOWNLOADS.DEBIAN}
+                      className="w-full"
+                      onClick={() => trackDownload("deb")}
+                    >
                       Debian (.deb)
                     </Link>
                   </DropdownMenuItem>
@@ -206,7 +226,11 @@ export default function LandingPage() {
                     asChild
                     className="focus:bg-primary/20 focus:text-primary cursor-pointer border-b border-primary/10 py-3"
                   >
-                    <Link href={LINKS.DOWNLOADS.RPM} className="w-full">
+                    <Link
+                      href={LINKS.DOWNLOADS.RPM}
+                      className="w-full"
+                      onClick={() => trackDownload("rpm")}
+                    >
                       RPM (.rpm)
                     </Link>
                   </DropdownMenuItem>
@@ -646,6 +670,7 @@ export default function LandingPage() {
                       download
                       href={LINKS.DOWNLOADS.APPIMAGE}
                       className="w-full text-center"
+                      onClick={() => trackDownload("appimage")}
                     >
                       AppImage (.AppImage)
                     </Link>
@@ -658,6 +683,7 @@ export default function LandingPage() {
                       download
                       href={LINKS.DOWNLOADS.DEBIAN}
                       className="w-full text-center"
+                      onClick={() => trackDownload("deb")}
                     >
                       Debian (.deb)
                     </Link>
@@ -670,6 +696,7 @@ export default function LandingPage() {
                       download
                       href={LINKS.DOWNLOADS.RPM}
                       className="w-full text-center"
+                      onClick={() => trackDownload("rpm")}
                     >
                       RPM (.rpm)
                     </Link>

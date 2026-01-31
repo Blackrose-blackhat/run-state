@@ -3,7 +3,7 @@ import { Navbar } from "@/components/navbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://portwatch.fuxsociety.org"),
+  metadataBase: new URL("https://portwatch.vercel.app"),
   title: "PortWatch | Next-Gen Observability for Linux Developers",
   description:
     "Premium performance monitoring tool for Linux developers. Zero-noise filtering, Docker native identification, and instant kill control.",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     title: "PortWatch | Next-Gen Observability for Linux Developers",
     description:
       "Premium performance monitoring tool for Linux developers. Zero-noise filtering, Docker native identification, and instant kill control.",
-    url: "https://portwatch.fuxsociety.org",
+    url: "https://portwatch.vercel.app",
     siteName: "PortWatch",
     images: [
       {
