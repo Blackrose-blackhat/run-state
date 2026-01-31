@@ -51,13 +51,20 @@ fn main() {
                 .resolve("bin/portwatch-engine", tauri::path::BaseDirectory::Resource)
                 .expect("engine binary not found");
 
+            println!("▶ starting engine at: {:?}", engine_path);
+
             // Run the engine with elevated privileges using pkexec
             // This allows the engine to access socket info for all processes
             let mut child = Command::new("pkexec")
                 .arg(&engine_path)
                 .stdout(std::process::Stdio::piped())
+                .stderr(std::process::Stdio::piped())
                 .spawn()
-                .expect("failed to start engine (pkexec may have been cancelled)");
+                .map_err(|e| {
+                    eprintln!("CRITICAL: Failed to spawn pkexec: {}", e);
+                    e
+                })
+                .expect("failed to start engine (pkexec may have been cancelled or is missing)");
 
             let stdout = child.stdout.take().expect("Failed to take stdout");
             let handle = app.handle().clone();

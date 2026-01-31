@@ -3,13 +3,15 @@
  "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
  "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
 <policyconfig>
-  <action id="org.portwatch.socket-info">
-    <description>PortWatch needs to read socket information</description>
-    <message>PortWatch needs elevated access to see process information for all ports</message>
+  <action id="org.portwatch.policy">
+    <description>Run PortWatch engine with elevated privileges</description>
+    <message>Authentication is required to allow PortWatch to monitor network sockets and manage system services.</message>
     <defaults>
-      <allow_any>auth_admin_keep</allow_any>
-      <allow_inactive>auth_admin_keep</allow_inactive>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
       <allow_active>auth_admin_keep</allow_active>
     </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/portwatch/bin/portwatch-engine</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
 </policyconfig>
