@@ -54,10 +54,23 @@ fn main() {
             println!("▶ starting engine at: {:?}", engine_path);
             println!("▶ CURRENT_DIR: {:?}", std::env::current_dir());
             println!("▶ DISPLAY: {:?}", std::env::var("DISPLAY"));
+            println!("▶ XAUTHORITY: {:?}", std::env::var("XAUTHORITY"));
+            println!("▶ APPIMAGE: {:?}", std::env::var("APPIMAGE"));
+            println!("▶ PATH: {:?}", std::env::var("PATH"));
             
             // Run the engine with elevated privileges using pkexec
             // This allows the engine to access socket info for all processes
-            let mut child = Command::new("pkexec")
+            let mut cmd = Command::new("pkexec");
+            
+            // Propagate environment variables needed for GUI prompts (crucial for AppImage/Bundles)
+            if let Ok(display) = std::env::var("DISPLAY") {
+                cmd.env("DISPLAY", display);
+            }
+            if let Ok(xauth) = std::env::var("XAUTHORITY") {
+                cmd.env("XAUTHORITY", xauth);
+            }
+
+            let mut child = cmd
                 .arg(&engine_path)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())

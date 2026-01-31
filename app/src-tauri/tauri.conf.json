@@ -36,13 +36,18 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["libgtk-3-0", "libwebkit2gtk-4.1-0", "libayatana-appindicator3-1", "policykit-1"],
+        "depends": ["libgtk-3-0", "libwebkit2gtk-4.1-0", "libayatana-appindicator3-1"],
         "files": {
           "/usr/share/polkit-1/actions/org.portwatch.policy": "../../engine/org.portwatch.policy"
         }
       },
       "rpm": {
-        "depends": ["gtk3", "webkit2gtk4.1", "libayatana-appindicator3-1", "polkit"],
+        "depends": ["gtk3", "webkit2gtk4.1", "libayatana-appindicator3-1"],
+        "files": {
+          "/usr/share/polkit-1/actions/org.portwatch.policy": "../../engine/org.portwatch.policy"
+        }
+      },
+      "appimage": {
         "files": {
           "/usr/share/polkit-1/actions/org.portwatch.policy": "../../engine/org.portwatch.policy"
         }
