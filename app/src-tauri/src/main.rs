@@ -58,10 +58,35 @@ fn main() {
             println!("▶ APPIMAGE: {:?}", std::env::var("APPIMAGE"));
             println!("▶ PATH: {:?}", std::env::var("PATH"));
             
+            // AppImage Fix: root cannot access FUSE mount points (Permission Denied).
+            // Extract engine to /tmp if we are in an AppImage environment.
+            let effective_engine_path = if std::env::var("APPIMAGE").is_ok() {
+                let tmp_dir = std::path::Path::new("/tmp/portwatch");
+                let tmp_engine = tmp_dir.join("portwatch-engine");
+                
+                println!("▶ AppImage detected, extracting engine to: {:?}", tmp_engine);
+                
+                let _ = std::fs::create_dir_all(tmp_dir);
+                if let Err(e) = std::fs::copy(&engine_path, &tmp_engine) {
+                    eprintln!("CRITICAL: Failed to copy engine to /tmp: {}", e);
+                }
+                
+                // Ensure it's executable
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&tmp_engine, std::fs::Permissions::from_mode(0o755));
+                
+                tmp_engine
+            } else {
+                engine_path
+            };
+
             // Run the engine with elevated privileges using pkexec
             // This allows the engine to access socket info for all processes
             let mut cmd = Command::new("pkexec");
             
+            // Set current_dir to /tmp to avoid "Permission Denied" if the app was started from a root-inaccessible dir
+            cmd.current_dir("/tmp");
+
             // Propagate environment variables needed for GUI prompts (crucial for AppImage/Bundles)
             if let Ok(display) = std::env::var("DISPLAY") {
                 cmd.env("DISPLAY", display);
@@ -71,7 +96,7 @@ fn main() {
             }
 
             let mut child = cmd
-                .arg(&engine_path)
+                .arg(&effective_engine_path)
                 .stdout(std::process::Stdio::piped())
                 .stderr(std::process::Stdio::piped())
                 .spawn()
