@@ -2,7 +2,7 @@
 
 > **Deep shell observability for the modern engineer.**
 >
-> ![Downloads](https://img.shields.io/github/downloads/Blackrose-blackhat/run-state/total?style=flat-square&color=00ff88&label=TOTAL%20DOWNLOADS)
+> ![Downloads](https://img.shields.io/github/downloads/Blackrose-blackhat/run-state/total?style=flat-square&color=000000&label=TOTAL%20DOWNLOADS)
 
 PortWatch is a high-performance system monitoring and observability suite designed to give developers surgical precision over their local and containerized environments. It combines a low-overhead Go engine with a sleek Tauri-based desktop interface.
 
