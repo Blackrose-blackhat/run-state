@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"runstate/engine/internal/engine"
 	"runstate/engine/internal/proc"
@@ -95,10 +96,15 @@ func main() {
 
 		var req struct {
 			PID   int  `json:"pid"`
-			Force bool `json:"force"` // Skip SIGTERM, go straight to SIGKILL
+			Force bool `json:"force"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		if req.PID <= 0 {
+			http.Error(w, "Cannot terminate system kernel process (PID 0)", http.StatusForbidden)
 			return
 		}
 
@@ -110,60 +116,70 @@ func main() {
 
 		type KillResult struct {
 			Success bool   `json:"success"`
-			Phase   string `json:"phase"` // "sigterm" or "sigkill"
+			Phase   string `json:"phase"`
 			Message string `json:"message"`
 		}
 
-		// Phase 1: SIGTERM (graceful)
+		// Phase 1: SIGTERM
 		if !req.Force {
-			if err := targetProc.Signal(syscall.SIGTERM); err != nil {
-				// Process might already be dead
-				json.NewEncoder(w).Encode(KillResult{
-					Success: true,
-					Phase:   "sigterm",
-					Message: "Process already terminated or inaccessible",
-				})
-				return
-			}
-
-			// Wait up to 4 seconds for graceful termination
-			terminated := false
-			for i := 0; i < 8; i++ {
-				time.Sleep(500 * time.Millisecond)
-				// Check if process still exists by sending signal 0
-				if err := targetProc.Signal(syscall.Signal(0)); err != nil {
-					terminated = true
-					break
+			if err := targetProc.Signal(syscall.SIGTERM); err == nil {
+				// Wait for graceful termination
+				for i := 0; i < 8; i++ {
+					time.Sleep(500 * time.Millisecond)
+					if err := targetProc.Signal(syscall.Signal(0)); err != nil {
+						json.NewEncoder(w).Encode(KillResult{Success: true, Phase: "sigterm", Message: "Terminated gracefully"})
+						return
+					}
 				}
 			}
-
-			if terminated {
-				json.NewEncoder(w).Encode(KillResult{
-					Success: true,
-					Phase:   "sigterm",
-					Message: "Process terminated gracefully",
-				})
-				return
-			}
-
-			// Process still alive, escalate to SIGKILL
-			log.Printf("[kill] PID %d did not respond to SIGTERM, escalating to SIGKILL", req.PID)
 		}
 
-		// Phase 2: SIGKILL (forced)
+		// Phase 2: SIGKILL
 		if err := targetProc.Signal(syscall.SIGKILL); err != nil {
-			json.NewEncoder(w).Encode(KillResult{
+			json.NewEncoder(w).Encode(KillResult{Success: false, Phase: "sigkill", Message: err.Error()})
+			return
+		}
+
+		json.NewEncoder(w).Encode(KillResult{Success: true, Phase: "sigkill", Message: "Force terminated"})
+	})
+
+	mux.HandleFunc("/service/stop", func(w http.ResponseWriter, r *http.Request) {
+		if withCORS(w, r) {
+			return
+		}
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			ServiceName string `json:"service_name"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Execute systemctl stop directly (assumes engine runs as root via pkexec)
+		cmd := exec.Command("systemctl", "stop", req.ServiceName)
+		output, err := cmd.CombinedOutput()
+
+		type ServiceResult struct {
+			Success bool   `json:"success"`
+			Message string `json:"message"`
+		}
+
+		if err != nil {
+			json.NewEncoder(w).Encode(ServiceResult{
 				Success: false,
-				Phase:   "sigkill",
-				Message: "Failed to force kill: " + err.Error(),
+				Message: fmt.Sprintf("Failed to stop service: %s. Output: %s", err, string(output)),
 			})
 			return
 		}
 
-		json.NewEncoder(w).Encode(KillResult{
+		json.NewEncoder(w).Encode(ServiceResult{
 			Success: true,
-			Phase:   "sigkill",
-			Message: "Process force terminated",
+			Message: fmt.Sprintf("Service %s stopped successfully", req.ServiceName),
 		})
 	})
 

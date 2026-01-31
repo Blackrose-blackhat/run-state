@@ -3,6 +3,7 @@ import { Navbar } from "@/components/navbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://portwatch.fuxsociety.org"),
   title: "PortWatch | Next-Gen Observability for Linux Developers",
   description:
     "Premium performance monitoring tool for Linux developers. Zero-noise filtering, Docker native identification, and instant kill control.",

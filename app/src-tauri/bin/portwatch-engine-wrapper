@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# This wrapper runs the engine with elevated privileges for socket access
+exec pkexec "$(dirname "$0")/portwatch-engine" "$@"

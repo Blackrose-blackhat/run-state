@@ -7,21 +7,21 @@ import (
 
 // ProtectedPorts defines system-critical ports that require explicit override
 var ProtectedPorts = map[int]string{
-	22:    "SSH",
-	53:    "DNS",
-	80:    "HTTP (system)",
-	443:   "HTTPS (system)",
-	2375:  "Docker (unencrypted)",
-	2376:  "Docker (TLS)",
-	2377:  "Docker Swarm",
-	3306:  "MySQL",
-	5432:  "PostgreSQL",
-	6379:  "Redis",
+
+	53: "DNS",
+
+	443:  "HTTPS (system)",
+	2375: "Docker (unencrypted)",
+	2376: "Docker (TLS)",
+	2377: "Docker Swarm",
+	3306: "MySQL",
+
 	27017: "MongoDB",
 }
 
-// ProtectedUsers are system accounts whose processes require override to kill
-var ProtectedUsers = []string{"root", "systemd", "docker", "postgres", "mysql", "redis"}
+// ProtectedUsers are user accounts that should trigger a warning (but not block)
+// These are accounts where processes are typically system-critical
+var ProtectedUsers = []string{"systemd"}
 
 // KillSimulation contains impact analysis for a potential kill operation
 type KillSimulation struct {
@@ -30,6 +30,7 @@ type KillSimulation struct {
 	ChildProcesses  []proc.ProcInfo `json:"child_processes"`
 	AffectedPorts   []int           `json:"affected_ports"`
 	IsProtected     bool            `json:"is_protected"`
+	SystemService   string          `json:"system_service,omitempty"`
 	ProtectedReason string          `json:"protected_reason,omitempty"`
 	Warnings        []string        `json:"warnings"`
 }
@@ -60,20 +61,22 @@ func IsProtectedProcess(p *proc.ProcInfo) (bool, string) {
 	}
 
 	// Check username
-	if IsProtectedUser(p.Username) {
-		return true, "Process owned by system user: " + p.Username
-	}
-
-	// Check for critical system processes
-	criticalProcesses := []string{
-		"systemd", "init", "sshd", "dockerd", "containerd",
-		"Xorg", "Xwayland", "gnome-shell", "kwin", "plasma",
-	}
-	nameLower := strings.ToLower(p.Name)
-	for _, cp := range criticalProcesses {
-		if nameLower == strings.ToLower(cp) {
-			return true, "System-critical process: " + p.Name
+	// Only protect if owned by root or system-specific daemon users
+	if p.Username == "root" || IsProtectedUser(p.Username) {
+		// Specific check for critical system processes that should NEVER be killed
+		criticalProcesses := []string{
+			"systemd", "init", "dbus-daemon", "networkmanager", "udevd",
+			"Xorg", "Xwayland", "gnome-shell", "kwin", "plasma-desktop",
 		}
+		nameLower := strings.ToLower(p.Name)
+		for _, cp := range criticalProcesses {
+			if nameLower == strings.ToLower(cp) {
+				return true, "System-critical process: " + p.Name
+			}
+		}
+
+		// For other root processes (like sshd, dockerd), we warn but allow override
+		return true, "Process owned by system/root: " + p.Username
 	}
 
 	return false, ""
@@ -129,6 +132,7 @@ func SimulateKill(pid int32, processes map[int32]proc.ProcInfo, ports []PortSnap
 	// Get target process info
 	if p, ok := processes[pid]; ok {
 		sim.TargetProcess = &p
+		sim.SystemService = p.SystemService
 
 		// Check if protected
 		if protected, reason := IsProtectedProcess(&p); protected {

@@ -1,8 +1,11 @@
 package proc
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/process"
@@ -10,15 +13,16 @@ import (
 
 // ProcInfo encapsulates essential process metadata.
 type ProcInfo struct {
-	PID        int32     `json:"pid"`
-	PPID       int32     `json:"ppid"`
-	Name       string    `json:"name"`
-	Cmdline    string    `json:"cmdline"`
-	Username   string    `json:"username"`
-	CreateTime time.Time `json:"create_time"`
-	MemoryMB   float64   `json:"memory_mb"`
-	Icon       string    `json:"icon"`
-	Cwd        string    `json:"cwd"`
+	PID           int32     `json:"pid"`
+	PPID          int32     `json:"ppid"`
+	Name          string    `json:"name"`
+	Cmdline       string    `json:"cmdline"`
+	Username      string    `json:"username"`
+	CreateTime    time.Time `json:"create_time"`
+	MemoryMB      float64   `json:"memory_mb"`
+	Icon          string    `json:"icon"`
+	Cwd           string    `json:"cwd"`
+	SystemService string    `json:"system_service,omitempty"`
 }
 
 // Snapshot returns a map of current processes, keyed by PID.
@@ -70,16 +74,48 @@ func Snapshot() (map[int32]ProcInfo, error) {
 		}
 
 		result[pid] = ProcInfo{
-			PID:        pid,
-			PPID:       ppid,
-			Name:       name,
-			Cmdline:    cmd,
-			Username:   user,
-			CreateTime: createTime,
-			MemoryMB:   memMB,
-			Cwd:        cwd,
+			PID:           pid,
+			PPID:          ppid,
+			Name:          name,
+			Cmdline:       cmd,
+			Username:      user,
+			CreateTime:    createTime,
+			MemoryMB:      memMB,
+			Cwd:           cwd,
+			SystemService: detectSystemService(pid),
 		}
 	}
 
 	return result, nil
+}
+
+// detectSystemService attempts to find the systemd service name for a PID
+func detectSystemService(pid int32) string {
+	if runtime.GOOS != "linux" {
+		return ""
+	}
+
+	data, err := os.ReadFile(fmt.Sprintf("/proc/%d/cgroup", pid))
+	if err != nil {
+		return ""
+	}
+
+	lines := strings.Split(string(data), "\n")
+	for _, line := range lines {
+		// Example v1: 1:name=systemd:/system.slice/redis-server.service
+		// Example v2: 0::/system.slice/redis-server.service
+		if strings.Contains(line, ".service") {
+			parts := strings.Split(line, "/")
+			for i := len(parts) - 1; i >= 0; i-- {
+				part := parts[i]
+				if strings.HasSuffix(part, ".service") {
+					// Handle cases like "system-redis.slice/redis-server.service"
+					// or just "redis-server.service"
+					return part
+				}
+			}
+		}
+	}
+
+	return ""
 }

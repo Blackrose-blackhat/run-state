@@ -10,8 +10,14 @@ import { SplashScreen } from "./components/SplashScreen";
  * Uses modular components and a custom hook for state management.
  */
 function App() {
-  const { ports, killState, simulateKill, killProcess, resetKillState } =
-    useEngine();
+  const {
+    ports,
+    killState,
+    simulateKill,
+    killProcess,
+    stopService,
+    resetKillState,
+  } = useEngine();
 
   // Track if terms were accepted
   const [isInitialized, setIsInitialized] = useState<boolean>(() => {
@@ -25,6 +31,13 @@ function App() {
       // Auto-reset after success/error with delay
       setTimeout(resetKillState, 2000);
     }
+  };
+
+  // Handle service stop from modal
+  const handleStopService = async (pid: number, serviceName: string) => {
+    await stopService(pid, serviceName);
+    // Auto-reset after success/error with delay
+    setTimeout(resetKillState, 2000);
   };
 
   // Watch for errors
@@ -72,6 +85,7 @@ function App() {
           <KillConfirmModal
             killState={killState}
             onConfirm={handleConfirmKill}
+            onStopService={handleStopService}
             onCancel={handleCancelKill}
           />
         </>

@@ -110,6 +110,41 @@ export function useEngine() {
     }
   };
 
+  // Stop systemd service gracefully
+  const stopService = async (pid: number, serviceName: string): Promise<{ success: boolean; message: string }> => {
+    if (!enginePort) {
+      return { success: false, message: "Engine not connected" };
+    }
+
+    setKillState({ status: "terminating", pid, phase: "sigterm" });
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${enginePort}/service/stop`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service_name: serviceName }),
+      });
+
+      const result = await res.json();
+
+      if (result.success) {
+        setKillState({ status: "success", pid, message: result.message });
+        addNotification(result.message, 'success');
+        await fetchData();
+      } else {
+        setKillState({ status: "error", pid, error: result.message });
+        addNotification(result.message, 'error');
+      }
+
+      return result;
+    } catch (err) {
+      const error = String(err);
+      setKillState({ status: "error", pid: 0, error });
+      addNotification(`Error: ${error}`, 'error');
+      return { success: false, message: error };
+    }
+  };
+
   // Reset kill state to idle
   const resetKillState = () => {
     setKillState({ status: "idle" });
@@ -127,6 +162,7 @@ export function useEngine() {
     killState,
     simulateKill,
     killProcess,
+    stopService,
     resetKillState,
     forgottenPortsCount,
     orphanedPortsCount,

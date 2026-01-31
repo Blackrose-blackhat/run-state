@@ -8,6 +8,7 @@ export interface ProcInfo {
   username: string;
   create_time: string;
   memory_mb: number;
+  system_service?: string;
 }
 
 // Port insight data from the engine
@@ -54,6 +55,7 @@ export interface KillSimulation {
   child_processes: ProcInfo[];
   affected_ports: number[];
   is_protected: boolean;
+  system_service?: string;
   protected_reason?: string;
   warnings: string[];
 }
