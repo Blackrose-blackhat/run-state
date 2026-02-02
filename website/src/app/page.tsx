@@ -531,16 +531,7 @@ export default function LandingPage() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
-              <div className="terminal-window aspect-square rounded-none overflow-hidden p-8 flex flex-col gap-4 group relative opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
-                {/* COMING SOON OVERLAY */}
-                <div className="absolute inset-0 z-[20] flex items-center justify-center p-4">
-                  <div className="bg-black/80 border border-primary/40 px-6 py-4 cyber-border rotate-[-5deg] shadow-[0_0_20px_rgba(0,255,136,0.2)]">
-                    <span className="text-primary font-black text-2xl uppercase tracking-[0.2em] italic neon-glow">
-                      CLI Coming Soon
-                    </span>
-                  </div>
-                </div>
-
+              <div className="terminal-window aspect-square rounded-none overflow-hidden p-8 flex flex-col gap-4 group relative transition-all duration-700">
                 {/* Scanline effect */}
                 <div className="absolute inset-0 scanline opacity-20 pointer-events-none z-10" />
 
@@ -550,7 +541,7 @@ export default function LandingPage() {
                   <div className="w-3 h-3 rounded-full bg-primary" />
                 </div>
                 <div className="space-y-2 font-mono text-xs md:text-sm terminal-text">
-                  <p className="text-primary/60">$ portwatch --init</p>
+                  <p className="text-primary/60">$ portwatch watch</p>
                   <motion.p
                     className="text-primary"
                     initial={{ opacity: 0 }}
@@ -558,58 +549,60 @@ export default function LandingPage() {
                     viewport={{ once: true }}
                     transition={{ delay: 0.3 }}
                   >
-                    [OK] Kernel interface connected.
+                    ⚡ PortWatch - Live Monitor
                   </motion.p>
                   <motion.p
-                    className="text-primary"
+                    className="text-primary/70"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.5 }}
                   >
-                    [OK] Docker container daemon detected.
+                    Updated: 16:42:33 | 4 active ports
                   </motion.p>
-                  <motion.p
-                    className="text-primary"
+                  <motion.div
+                    className="mt-4 font-mono text-[10px] md:text-xs"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.7 }}
                   >
-                    [OK] Filter rules loaded: 84 active.
-                  </motion.p>
-                  <motion.p
-                    className="text-primary/40 mt-4"
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.9 }}
-                  >
-                    $ portwatch monitor --port 3000
-                  </motion.p>
-                  <motion.div
-                    className="bg-primary/10 p-3 mt-2 border border-primary/20"
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 1.1 }}
-                  >
-                    <p className="text-primary">
-                      PID: 12845 | CMD: node server.js
-                    </p>
-                    <p className="text-primary">
-                      NET: 172.17.0.2:3000 {"->"} 0.0.0.0:*
-                    </p>
-                    <p className="text-primary">MEM: 124MB | CPU: 1.2%</p>
+                    <div className="flex justify-between border-b border-primary/20 pb-1 text-primary/40 uppercase tracking-tighter">
+                      <span>Port</span>
+                      <span>Address</span>
+                      <span>PID</span>
+                      <span>Process</span>
+                    </div>
+                    <div className="pt-2 space-y-1">
+                      <div className="flex justify-between text-primary">
+                        <span>11434</span>
+                        <span>127.0.0.1</span>
+                        <span>1322</span>
+                        <span>ollama</span>
+                      </div>
+                      <div className="flex justify-between text-primary/80">
+                        <span>5432</span>
+                        <span>0.0.0.0</span>
+                        <span>1682</span>
+                        <span>postgres</span>
+                      </div>
+                      <div className="flex justify-between text-primary/60">
+                        <span>6379</span>
+                        <span>127.0.0.1</span>
+                        <span>95395</span>
+                        <span>redis</span>
+                      </div>
+                    </div>
                   </motion.div>
+
                   <motion.p
-                    className="text-primary/60 mt-4"
+                    className="text-primary/40 mt-6"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
-                    transition={{ delay: 1.3 }}
+                    transition={{ delay: 1.2 }}
                   >
-                    _ Monitoring active
+                    _ Press Ctrl+C to exit
                     <span className="animate-pulse">...</span>
                   </motion.p>
                 </div>
@@ -731,14 +724,33 @@ export default function LandingPage() {
             </p>
           </div>
           <Tabs
-            defaultValue="deb"
+            defaultValue="cli"
             className="bg-neutral-900 border border-primary/20 rounded-xl p-6"
           >
             <TabsList className="mb-6 flex justify-center gap-2">
+              <TabsTrigger value="cli">CLI Installer (All Distros)</TabsTrigger>
               <TabsTrigger value="deb">Debian (.deb)</TabsTrigger>
               <TabsTrigger value="appimage">AppImage</TabsTrigger>
               <TabsTrigger value="rpm">RPM (.rpm)</TabsTrigger>
             </TabsList>
+            <TabsContent value="cli">
+              <div className="text-left">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-primary font-bold">
+                    One-line Installation
+                  </span>
+                  <Badge className="bg-primary/20 text-primary border-0 rounded-none uppercase text-[10px] font-mono tracking-tighter">
+                    Recommended
+                  </Badge>
+                </div>
+                <code className="block font-mono text-base bg-black/60 p-3 rounded select-all border border-primary/10">
+                  {LINKS.CURL.INSTALL_CLI}
+                </code>
+                <p className="mt-3 text-xs text-muted-foreground font-mono">
+                  # Auto-detects architecture and installs to /usr/local/bin
+                </p>
+              </div>
+            </TabsContent>
             <TabsContent value="deb">
               <div className="text-left">
                 <span className="block text-primary font-bold mb-2">

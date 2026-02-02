@@ -18,5 +18,6 @@ export const LINKS = {
     DEBIAN: `curl -L -o portwatch.deb ${REPO_PORTWATCH}/releases/download/v${LATEST_VERSION}/PortWatch_${LATEST_VERSION}_amd64.deb`,
     APPIMAGE: `curl -L -o portwatch.AppImage ${REPO_PORTWATCH}/releases/download/v${LATEST_VERSION}/PortWatch_${LATEST_VERSION}_amd64.AppImage`,
     RPM: `curl -L -o portwatch.rpm ${REPO_PORTWATCH}/releases/download/v${LATEST_VERSION}/PortWatch-${LATEST_VERSION}-1.x86_64.rpm`,
+    INSTALL_CLI: `curl -sSL https://raw.githubusercontent.com/Blackrose-blackhat/run-state/main/install.sh | bash`
   }
 };
