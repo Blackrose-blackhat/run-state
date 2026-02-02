@@ -55,13 +55,16 @@ jobs:
           BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
           LDFLAGS="-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -s -w"
 
+          # Build from engine directory where go.mod is
+          cd engine
+
           # Build for amd64
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist-cli/portwatch-linux-amd64 ./engine/cmd/portwatch
-          cd dist-cli && tar -czf portwatch-linux-amd64.tar.gz portwatch-linux-amd64 && cd ..
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o ../dist-cli/portwatch-linux-amd64 ./cmd/portwatch
+          cd ../dist-cli && tar -czf portwatch-linux-amd64.tar.gz portwatch-linux-amd64 && cd ../engine
 
           # Build for arm64
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist-cli/portwatch-linux-arm64 ./engine/cmd/portwatch
-          cd dist-cli && tar -czf portwatch-linux-arm64.tar.gz portwatch-linux-arm64 && cd ..
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o ../dist-cli/portwatch-linux-arm64 ./cmd/portwatch
+          cd ../dist-cli && tar -czf portwatch-linux-arm64.tar.gz portwatch-linux-arm64 && cd ..
 
           echo "✓ CLI binaries built in dist-cli"
 
