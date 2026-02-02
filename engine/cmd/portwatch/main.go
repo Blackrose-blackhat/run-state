@@ -104,10 +104,11 @@ func main() {
 
 	// Commands that require root privileges
 	needsRoot := map[string]bool{
-		"list":  true,
-		"ls":    true,
-		"watch": true,
-		"kill":  true,
+		"list":      true,
+		"ls":        true,
+		"watch":     true,
+		"kill":      true,
+		"uninstall": true,
 	}
 
 	// Auto-elevate if needed
@@ -132,6 +133,8 @@ func main() {
 		cmdWatch()
 	case "server":
 		cmdServer()
+	case "uninstall":
+		cmdUninstall()
 	case "version", "-v", "--version":
 		printVersion()
 	case "help", "-h", "--help":
@@ -193,6 +196,7 @@ func printHelp() {
     %skill <target>%s     Smart kill - auto-detects PID or service name
     %swatch%s             Live-updating port monitor (TUI mode)
     %sserver%s            Start HTTP API server (for Tauri app)
+    %suninstall%s         Uninstall PortWatch CLI from the system
     %sversion%s           Show version information
     %shelp%s              Show this help message
 
@@ -207,6 +211,7 @@ func printHelp() {
     portwatch kill nginx        # Stop systemd service
     portwatch kill redis -f     # Force kill without prompt
     portwatch watch             # Live monitor
+    portwatch uninstall         # Remove PortWatch
 
 `, BoldCyan, Reset,
 		Bold, Reset,
@@ -601,6 +606,39 @@ func cmdServer() {
 		fmt.Printf("%s⚠ Server mode requires separate engine binary%s\n", Yellow, Reset)
 		fmt.Printf("   Run: cd engine && go run ./cmd/engine\n")
 	}
+}
+
+func cmdUninstall() {
+	fmt.Printf("\n%s🗑 Uninstall PortWatch%s\n\n", BoldRed, Reset)
+
+	exe, err := os.Executable()
+	if err != nil {
+		fmt.Printf("%s✗ Error finding binary path: %v%s\n", BoldRed, err, Reset)
+		os.Exit(1)
+	}
+
+	fmt.Printf("  Binary location: %s%s%s\n", Bold, exe, Reset)
+	fmt.Printf("\n%sAre you sure you want to uninstall PortWatch? [y/N]:%s ", Bold, Reset)
+
+	reader := bufio.NewReader(os.Stdin)
+	response, _ := reader.ReadString('\n')
+	response = strings.TrimSpace(strings.ToLower(response))
+
+	if response != "y" && response != "yes" {
+		fmt.Printf("%s✗ Aborted%s\n", Yellow, Reset)
+		return
+	}
+
+	fmt.Printf("\n%s→ Removing binary...%s\n", Cyan, Reset)
+
+	err = os.Remove(exe)
+	if err != nil {
+		fmt.Printf("%s✗ Failed to remove binary: %v%s\n", BoldRed, err, Reset)
+		os.Exit(1)
+	}
+
+	fmt.Printf("%s✓ PortWatch successfully uninstalled%s\n\n", BoldGreen, Reset)
+	os.Exit(0)
 }
 
 func truncate(s string, max int) string {
