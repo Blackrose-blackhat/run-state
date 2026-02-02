@@ -101,6 +101,46 @@ graph TD
 
 ---
 
+## 🖥️ CLI Installation
+
+Install the standalone CLI tool to monitor ports directly from your terminal.
+
+### Quick Install (Recommended)
+
+Run the following command in your terminal to install PortWatch CLI instantly:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/Blackrose-blackhat/run-state/main/install.sh | bash
+```
+
+### Manual Install (from source)
+
+```bash
+git clone https://github.com/Blackrose-blackhat/run-state.git
+cd run-state
+./install.sh
+```
+
+```bash
+cd engine
+make install        # System-wide (requires sudo)
+# or
+make user-install   # User only (~/.local/bin)
+```
+
+### CLI Usage
+
+```bash
+portwatch list              # List all active ports
+portwatch list --json       # JSON output
+portwatch kill 1234         # Kill process by PID
+portwatch kill nginx        # Stop systemd service (auto-detected)
+portwatch kill redis -f     # Force kill without prompt
+portwatch watch             # Live monitor
+```
+
+---
+
 ## 🛡️ Security
 
 PortWatch uses localized HTTP communication for the bridge between the desktop app and the Go engine. All system-level interactions are restricted to the local loopback interface and Require internal authorization tokens (planned v1.1).

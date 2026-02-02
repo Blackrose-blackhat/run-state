@@ -48,6 +48,23 @@ jobs:
 
           echo "✓ engine and wrapper ready in app/src-tauri/bin"
 
+      - name: build standalone CLI
+        run: |
+          mkdir -p dist-cli
+          VERSION=$(grep '"version":' app/src-tauri/tauri.conf.json | head -1 | awk -F'"' '{print $4}')
+          BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')
+          LDFLAGS="-X main.Version=$VERSION -X main.BuildTime=$BUILD_TIME -s -w"
+
+          # Build for amd64
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist-cli/portwatch-linux-amd64 ./engine/cmd/portwatch
+          cd dist-cli && tar -czf portwatch-linux-amd64.tar.gz portwatch-linux-amd64 && cd ..
+
+          # Build for arm64
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "$LDFLAGS" -o dist-cli/portwatch-linux-arm64 ./engine/cmd/portwatch
+          cd dist-cli && tar -czf portwatch-linux-arm64.tar.gz portwatch-linux-arm64 && cd ..
+
+          echo "✓ CLI binaries built in dist-cli"
+
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
@@ -79,6 +96,11 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: --verbose
+          includeRelease: true
+          # Add CLI binaries to the release
+          releaseAssets: |
+            dist-cli/portwatch-linux-amd64.tar.gz
+            dist-cli/portwatch-linux-arm64.tar.gz
 
       - name: update website links
         run: |
